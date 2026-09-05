@@ -1,31 +1,38 @@
 <!doctype html>
 <html lang="pt"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Pagamentos pendentes</title>
+<title>Painel da clínica</title>
 <style>
-  :root{--bg:#0b1220;--card:#131c2e;--card2:#0f1728;--line:#22304a;--tx:#e6edf7;--mut:#8ea0bd;--red:#f87171;--amber:#fbbf24;--accent:#5b8def}
+  :root{--bg:#0b1220;--card:#131c2e;--card2:#0f1728;--line:#22304a;--tx:#e6edf7;--mut:#8ea0bd;--red:#f87171;--amber:#fbbf24;--green:#34d399;--accent:#5b8def}
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx);padding:max(16px,env(safe-area-inset-top)) 16px 40px;-webkit-text-size-adjust:100%}
   .wrap{max-width:640px;margin:0 auto}
-  header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
   h1{font-size:19px;margin:0;letter-spacing:-.02em}
   .sub{color:var(--mut);font-size:12.5px;margin:2px 0 16px}
+  .tabs{display:flex;gap:6px;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:16px}
+  .tabs button{flex:1;background:transparent;color:var(--mut);font-weight:600;font-size:13.5px;padding:9px 8px;border-radius:9px}
+  .tabs button.on{background:var(--accent);color:#fff}
   .hero{background:linear-gradient(135deg,#16233c,#101a2e);border:1px solid var(--line);border-radius:18px;padding:20px;margin-bottom:16px}
   .hero .lbl{color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
   .hero .big{font-size:38px;font-weight:700;letter-spacing:-.03em;margin:6px 0 2px}
   .hero .meta{color:var(--mut);font-size:13px}
   .unidade{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:14px;overflow:hidden}
-  .uh{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+  .uh{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px}
   .uh .n{font-weight:650;font-size:15px}
   .uh .v{font-weight:700;font-size:15px}
   .uh .c{color:var(--mut);font-size:12px;font-weight:500}
+  .grp{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin:6px 2px 8px;font-weight:650}
   .row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 0;border-top:1px solid var(--line)}
+  .row:first-child{border-top:0}
   .row .nm{font-weight:600;font-size:14.5px;word-break:break-word}
   .row .vl{font-weight:700;font-size:14.5px;text-align:right;white-space:nowrap}
   .row .dt{color:var(--mut);font-size:12.5px}
+  .row a{color:var(--accent);text-decoration:none}
   .row .tg{justify-self:end;font-size:11.5px;padding:2px 8px;border-radius:999px;white-space:nowrap}
   .atraso{background:rgba(248,113,113,.14);color:var(--red)}
   .recente{background:rgba(251,191,36,.14);color:var(--amber)}
+  .novo{background:rgba(91,141,239,.16);color:#9db8f2}
   button{font:inherit;cursor:pointer;border:0}
   .btn{background:var(--accent);color:#fff;font-weight:650;padding:12px 16px;border-radius:12px;width:100%;font-size:15px}
   .btn.sec{background:var(--card);color:var(--tx);border:1px solid var(--line)}
@@ -42,15 +49,22 @@
 </style></head>
 <body><div class="wrap" id="app"><div class="center"><span class="spin"></span><span>A carregar…</span></div></div>
 <script>
-// Painel privado. Nao contem segredos: o codigo de acesso e as credenciais do
-// seufisio sao digitados pelo utilizador e guardados no seu proprio Supabase.
 const FUNC="https://vxnfczgxtlckvqaldwne.supabase.co/functions/v1/painel-clinica";
 const app=document.getElementById("app");
+let aba="pagamentos";
 const getCode=()=>{try{return localStorage.getItem("painel_code")||""}catch(e){return""}};
 const setCode=c=>{try{localStorage.setItem("painel_code",c)}catch(e){}};
 const eur=n=>new Intl.NumberFormat("pt-PT",{style:"currency",currency:"EUR"}).format(n||0);
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const tel=s=>String(s||"").replace(/[^\d+]/g,"");
 function fmtd(s){if(!/^\d{4}-\d{2}-\d{2}$/.test(s||""))return s||"";const p=s.split("-");return p[2]+"/"+p[1]+"/"+p[0];}
+
+function tabs(){
+  return '<div class="tabs">'
+    +'<button class="'+(aba==="pagamentos"?"on":"")+'" onclick="irPara(\'pagamentos\')">Pagamentos</button>'
+    +'<button class="'+(aba==="agendamentos"?"on":"")+'" onclick="irPara(\'agendamentos\')">Sem marcação</button></div>';
+}
+function irPara(a){ aba=a; carregar(); }
 
 function pedirCodigo(msg){
   app.innerHTML='<header><h1>Painel da clínica</h1></header>'
@@ -64,27 +78,28 @@ function pedirCodigo(msg){
 async function carregar(){
   const code=getCode();
   if(!code) return pedirCodigo();
-  app.innerHTML='<div class="center"><span class="spin"></span><span>A consultar o seufisio…</span></div>';
+  const acao=aba==="agendamentos"?"agendamentos":"dados";
+  app.innerHTML=tabs()+'<div class="center"><span class="spin"></span><span>A consultar o seufisio…</span></div>';
   let r,d;
-  try{ r=await fetch(FUNC+"?acao=dados&k="+encodeURIComponent(code)); d=await r.json(); }
+  try{ r=await fetch(FUNC+"?acao="+acao+"&k="+encodeURIComponent(code)); d=await r.json(); }
   catch(e){ return erro("Falha de rede. Toque em Atualizar."); }
   if(r.status===401) return pedirCodigo("Código incorreto.");
   if(d.configurado===false) return setup();
   if(d.erro) return erro(d.erro);
-  render(d);
+  if(aba==="agendamentos") renderAgend(d); else renderPag(d);
 }
 
-function tag(dias){ if(dias==="")return""; if(dias>0)return '<span class="tg atraso">'+dias+'d em atraso</span>'; return '<span class="tg recente">vence hoje</span>'; }
+function tagAtraso(dias){ if(dias==="")return""; if(dias>0)return '<span class="tg atraso">'+dias+'d em atraso</span>'; return '<span class="tg recente">vence hoje</span>'; }
 
-function render(d){
-  let h='<header><div><h1>Pagamentos pendentes</h1></div><button class="refresh" onclick="carregar()">Atualizar</button></header>'
+function renderPag(d){
+  let h='<header><h1>Pagamentos pendentes</h1><button class="refresh" onclick="carregar()">Atualizar</button></header>'+tabs()
     +'<div class="sub">Contas em aberto e vencidas até '+esc(fmtd(d.vencimento_ate))+'</div>'
     +'<div class="hero"><div class="lbl">Total a receber</div><div class="big">'+eur(d.total_valor)+'</div><div class="meta">'+d.total_contas+' contas · atualizado '+esc(d.gerado_em)+'</div></div>';
   for(const u of d.unidades){
     h+='<div class="unidade"><div class="uh"><span class="n">'+esc(u.nome)+' <span class="c">· '+u.contas+' contas</span></span><span class="v">'+eur(u.total)+'</span></div>';
     if(!u.linhas.length){ h+='<div class="empty">Sem contas pendentes.</div>'; }
     for(const l of u.linhas){
-      h+='<div class="row"><div class="nm">'+esc(l.cliente)+'</div><div class="vl">'+eur(l.valor)+'</div><div class="dt">'+esc(fmtd(l.data_vencimento))+(l.servico?' · '+esc(l.servico):'')+'</div>'+tag(l.dias_atraso)+'</div>';
+      h+='<div class="row"><div class="nm">'+esc(l.cliente)+'</div><div class="vl">'+eur(l.valor)+'</div><div class="dt">'+esc(fmtd(l.data_vencimento))+(l.servico?' · '+esc(l.servico):'')+'</div>'+tagAtraso(l.dias_atraso)+'</div>';
     }
     h+='</div>';
   }
@@ -92,8 +107,36 @@ function render(d){
   app.innerHTML=h;
 }
 
+function linhaPac(l){
+  const t=tel(l.telefone);
+  const contacto=t?'<a href="tel:'+t+'">'+esc(l.telefone)+'</a>':esc(l.telefone||"");
+  const et=l.situacao==="Avaliado, nunca iniciou"?'<span class="tg novo">nunca iniciou</span>':'<span class="tg recente">parou</span>';
+  return '<div class="row"><div class="nm">'+esc(l.cliente)+(contacto?' · '+contacto:'')+'</div><div class="vl">'+(l.dias!=null?l.dias+'d':'')+'</div>'
+    +'<div class="dt">'+esc(l.unidades)+(l.data_ref?' · desde '+esc(fmtd(l.data_ref)):'')+'</div>'+et+'</div>';
+}
+
+function renderAgend(d){
+  const r=d.resumo;
+  const nunca=d.sem_marcacao.filter(x=>x.situacao==="Avaliado, nunca iniciou");
+  const parou=d.sem_marcacao.filter(x=>x.situacao==="Sem sessão agendada");
+  let h='<header><h1>Sem marcação</h1><button class="refresh" onclick="carregar()">Atualizar</button></header>'+tabs()
+    +'<div class="sub">Pacientes sem nenhuma sessão futura marcada (encerrados excluídos)</div>'
+    +'<div class="hero"><div class="lbl">Pacientes a recuperar</div><div class="big">'+r.sem_marcacao+'</div>'
+    +'<div class="meta">'+r.nunca+' nunca iniciaram · '+r.parou+' pararam · atualizado '+esc(d.gerado_em)+'</div></div>';
+  h+='<div class="unidade"><div class="grp">Avaliados, nunca iniciaram — '+nunca.length+'</div>';
+  if(!nunca.length) h+='<div class="empty">Nenhum.</div>';
+  for(const l of nunca) h+=linhaPac(l);
+  h+='</div>';
+  h+='<div class="unidade"><div class="grp">Iniciaram e pararam — '+parou.length+'</div>';
+  if(!parou.length) h+='<div class="empty">Nenhum.</div>';
+  for(const l of parou) h+=linhaPac(l);
+  h+='</div>';
+  h+='<div class="foot">Mesma análise da rotina de e-mail · '+r.ja_agendado+' já agendados, '+r.encerrados+' encerrados</div>';
+  app.innerHTML=h;
+}
+
 function erro(msg){
-  app.innerHTML='<header><h1>Pagamentos pendentes</h1></header><div class="err">'+esc(msg)+'</div>'
+  app.innerHTML='<header><h1>Painel da clínica</h1></header>'+tabs()+'<div class="err">'+esc(msg)+'</div>'
     +'<button class="btn" onclick="carregar()">Tentar de novo</button>'
     +'<button class="btn sec" style="margin-top:10px" onclick="setup()">Alterar credenciais do seufisio</button>';
 }
