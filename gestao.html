@@ -40,8 +40,8 @@ const FUNC = "https://vxnfczgxtlckvqaldwne.supabase.co/functions/v1/painel-clini
 const app = document.getElementById("app");
 const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const MES3 = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
-const SERVICO_GRUPOS = { todos:["avaliacao","consulta","metodo","outros"], escoliose:["avaliacao","consulta","metodo"], avaliacao:["avaliacao"], consulta:["consulta"], metodo:["metodo"] };
-const SERVICO_LABEL = { todos:"Todos os serviços", escoliose:"Só escoliose (3 tipos)", avaliacao:"Escoliose Avaliação", consulta:"Escoliose Consulta", metodo:"Método EP Controlada" };
+const SERVICO_GRUPOS = { todos:["avaliacao","consulta","metodo","outros"], escoliose:["avaliacao","consulta","metodo"], avaliacao:["avaliacao"], consulta:["consulta","metodo"] };
+const SERVICO_LABEL = { todos:"Todos os serviços", escoliose:"Só escoliose", avaliacao:"Escoliose Avaliação", consulta:"Escoliose Consulta" };
 
 const eur = n => new Intl.NumberFormat("pt-PT",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(n||0);
 const int = n => new Intl.NumberFormat("pt-PT").format(n||0);
