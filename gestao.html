@@ -18,162 +18,218 @@
   .num { font-variant-numeric: tabular-nums; }
   .spin { width:18px;height:18px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:sp .7s linear infinite }
   @keyframes sp { to { transform: rotate(360deg) } }
+  select { -webkit-appearance:none; appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>"); background-repeat:no-repeat; background-position:right 8px center; padding-right:28px; }
   *:focus-visible { outline:2px solid #2563eb; outline-offset:2px; border-radius:6px }
   @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-
 <div id="app" class="min-h-screen"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <script>
 const FUNC = "https://vxnfczgxtlckvqaldwne.supabase.co/functions/v1/painel-clinica";
 const app = document.getElementById("app");
+const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const MES3 = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
 
 const eur = n => new Intl.NumberFormat("pt-PT",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(n||0);
 const int = n => new Intl.NumberFormat("pt-PT").format(n||0);
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const icons = () => { try { window.lucide && lucide.createIcons(); } catch(e){} };
 const getCode = () => { try { return localStorage.getItem("painel_code")||""; } catch(e){ return ""; } };
 const setCode = c => { try { localStorage.setItem("painel_code",c); } catch(e){} };
-const mesLabel = m => { const [y,mm]=m.split("-"); return ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][+mm-1]+(mm==="01"?"/"+y.slice(2):""); };
+const mesLabelP = p => MES3[+p.slice(5,7)-1] + (p.slice(5,7)==="01"?"/"+p.slice(2,4):"");
 const ddmm = s => { const p=String(s).slice(0,10).split("-"); return p[2]+"/"+p[1]; };
 
-function initTheme(){
-  let s=null; try{ s=localStorage.getItem("sf-theme"); }catch(e){}
+(function initTheme(){ let s=null; try{s=localStorage.getItem("sf-theme");}catch(e){}
   const dark = s ? s==="dark" : (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
-  document.documentElement.classList.toggle("dark", dark);
-}
-initTheme();
-function toggleTheme(){ const d=!document.documentElement.classList.contains("dark"); document.documentElement.classList.toggle("dark",d); try{localStorage.setItem("sf-theme",d?"dark":"light");}catch(e){} }
+  document.documentElement.classList.toggle("dark", dark); })();
+function toggleTheme(){ const d=!document.documentElement.classList.contains("dark"); document.documentElement.classList.toggle("dark",d); try{localStorage.setItem("sf-theme",d?"dark":"light");}catch(e){} render(); }
+
+let PAYLOAD = null;
+const F = { ano:"tudo", mes:"todos", semana:"todas" };
 
 // ---------- gate + carregamento ----------
 function pedirCodigo(msg){
-  app.innerHTML = `<div class="min-h-screen grid place-content-center p-6">
-    <div class="w-[min(92vw,380px)] rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
-      <div class="flex items-center gap-3 mb-4">
-        <span class="grid size-10 place-content-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white"><i data-lucide="activity" class="h-5 w-5"></i></span>
-        <div><div class="font-display font-bold">Painel de Gestão</div><div class="text-xs text-slate-500">Escoliose Portugal</div></div>
-      </div>
-      ${msg?`<div class="mb-3 text-sm rounded-lg bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 px-3 py-2">${esc(msg)}</div>`:""}
-      <label class="text-sm font-medium">Código de acesso</label>
-      <input id="cod" type="password" autocomplete="off" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2" />
-      <button id="ok" class="mt-4 w-full rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 transition-colors">Entrar</button>
-    </div></div>`;
-  if(window.lucide) lucide.createIcons();
+  app.innerHTML = `<div class="min-h-screen grid place-content-center p-6"><div class="w-[min(92vw,380px)] rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
+    <div class="flex items-center gap-3 mb-4"><span class="grid size-10 place-content-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white"><i data-lucide="activity" class="h-5 w-5"></i></span>
+      <div><div class="font-display font-bold">Painel de Gestão</div><div class="text-xs text-slate-500">Escoliose Portugal</div></div></div>
+    ${msg?`<div class="mb-3 text-sm rounded-lg bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 px-3 py-2">${esc(msg)}</div>`:""}
+    <label class="text-sm font-medium">Código de acesso</label>
+    <input id="cod" type="password" autocomplete="off" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2" />
+    <button id="ok" class="mt-4 w-full rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 transition-colors">Entrar</button></div></div>`;
+  icons();
   const go = () => { const c=document.getElementById("cod").value.trim(); if(c){ setCode(c); carregar(); } };
   document.getElementById("ok").onclick = go;
   document.getElementById("cod").addEventListener("keydown",e=>{ if(e.key==="Enter") go(); });
 }
-
 function tela(msg){ app.innerHTML = `<div class="min-h-screen grid place-content-center text-slate-500"><div class="flex items-center gap-3"><span class="spin"></span><span>${esc(msg)}</span></div></div>`; }
+function telaErro(msg){ app.innerHTML = `<div class="min-h-screen grid place-content-center p-6"><div class="text-center"><div class="text-rose-600 dark:text-rose-400 mb-3">${esc(msg)}</div><button onclick="carregar()" class="rounded-lg border border-slate-300 dark:border-slate-700 px-4 py-2 text-sm font-medium">Tentar de novo</button></div></div>`; }
 
 async function carregar(){
   const code = getCode();
   if(!code) return pedirCodigo();
-  tela("A consultar o painel…");
+  tela("A carregar o painel…");
   let r,d;
   try { r = await fetch(FUNC+"?acao=painel&k="+encodeURIComponent(code)); d = await r.json(); }
   catch(e){ return telaErro("Falha de rede. Tente atualizar."); }
   if(r.status===401) return pedirCodigo("Código incorreto.");
   if(d.erro) return telaErro(d.erro);
-  if(d.vazio) return telaErro("O painel ainda não foi calculado. Tente novamente em alguns minutos.");
-  render(d);
+  if(d.vazio) return telaErro("O painel ainda não foi calculado. Toque em recalcular ou tente daqui a pouco.");
+  PAYLOAD = d;
+  // normaliza filtro se ficou inválido
+  render();
 }
 
-function telaErro(msg){
-  app.innerHTML = `<div class="min-h-screen grid place-content-center p-6"><div class="text-center">
-    <div class="text-rose-600 dark:text-rose-400 mb-3">${esc(msg)}</div>
-    <button onclick="carregar()" class="rounded-lg border border-slate-300 dark:border-slate-700 px-4 py-2 text-sm font-medium">Tentar de novo</button>
-  </div></div>`;
+async function recalcular(){
+  if(!confirm("Recalcular agora a partir do seufisio? Isto vai buscar tudo ao vivo e demora cerca de 2 minutos.")) return;
+  tela("A recalcular ao vivo a partir do seufisio… (~2 min, não feche)");
+  try {
+    const r = await fetch(FUNC+"?acao=rebuild&k="+encodeURIComponent(getCode()));
+    const d = await r.json();
+    if(d && d.ok===false && d.erro){ telaErro("Recálculo falhou: "+d.erro); return; }
+  } catch(e){ /* pode expirar no cliente mas concluir no servidor */ }
+  await carregar();
 }
+
+// ---------- filtros ----------
+function anosDisp(){ return [...new Set((PAYLOAD.mensal||[]).map(m=>m.periodo.slice(0,4)))].sort(); }
+function mesesDisp(ano){ return (PAYLOAD.mensal||[]).filter(m=>m.periodo.startsWith(ano)).map(m=>m.periodo.slice(5,7)); }
+function semanasDisp(anoMes){ return (PAYLOAD.semanal||[]).filter(s=>s.mes===anoMes).map(s=>s.ini); }
+
+function agg(buckets){
+  const a={fat_total:0,fat_pago:0,atend:0,ind:0,dup:0,atend_ind:0,atend_dup:0,prof:{}};
+  for(const b of buckets){ a.fat_total+=b.fat_total; a.fat_pago+=b.fat_pago; a.atend+=b.atend; a.ind+=b.ind; a.dup+=b.dup; a.atend_ind+=b.atend_ind; a.atend_dup+=b.atend_dup;
+    for(const [k,v] of Object.entries(b.prof||{})) a.prof[k]=(a.prof[k]||0)+v; }
+  return a;
+}
+function escopo(){
+  const {ano,mes,semana}=F;
+  if(ano!=="tudo" && mes!=="todos" && semana!=="todas"){ const b=(PAYLOAD.semanal||[]).find(s=>s.ini===semana); const it=b?[b]:[]; return {buckets:it, tipo:"semana", items:it}; }
+  if(ano!=="tudo" && mes!=="todos"){ const am=ano+"-"+mes; const ws=(PAYLOAD.semanal||[]).filter(s=>s.mes===am); return {buckets:ws, tipo:"semana", items:ws}; }
+  if(ano!=="tudo"){ const ms=(PAYLOAD.mensal||[]).filter(m=>m.periodo.startsWith(ano)); return {buckets:ms, tipo:"mes", items:ms}; }
+  return {buckets:(PAYLOAD.mensal||[]), tipo:"mes", items:(PAYLOAD.mensal||[])};
+}
+function rotuloEscopo(){
+  const {ano,mes,semana}=F;
+  if(ano!=="tudo" && mes!=="todos" && semana!=="todas") return "Semana de "+ddmm(semana);
+  if(ano!=="tudo" && mes!=="todos") return MESES[+mes-1]+" de "+ano;
+  if(ano!=="tudo") return "Ano de "+ano;
+  return "Todo o período (desde jan/2025)";
+}
+
+function onAno(v){ F.ano=v; F.mes="todos"; F.semana="todas"; render(); }
+function onMes(v){ F.mes=v; F.semana="todas"; render(); }
+function onSemana(v){ F.semana=v; render(); }
 
 // ---------- render ----------
-function render(d){
-  const fat = d.faturacao, pag = d.pagamentos_atrasados, pac = d.pacientes, at = d.atendimentos;
-  const acumulado = (fat.mensal||[]).reduce((s,m)=>s+ (m.total||0),0);
-  const di = at.dupla_individual || {};
-  const indiv = di.atend_individual ?? di.individual ?? 0;
-  const dup = di.atend_dupla ?? di.dupla ?? 0;
+function render(){
+  if(!PAYLOAD) return;
+  const sc = escopo();
+  const a = agg(sc.buckets);
+  const por_receber = a.fat_total - a.fat_pago;
+  const totalSess = a.atend_ind + a.atend_dup;
+  const at = PAYLOAD.atual || {};
+  const pag = at.pagamentos_atrasados || {valor:0,contas:0,criticas:0};
+
+  const anos = anosDisp();
+  const meses = F.ano!=="tudo" ? mesesDisp(F.ano) : [];
+  const semanas = (F.ano!=="tudo" && F.mes!=="todos") ? semanasDisp(F.ano+"-"+F.mes) : [];
+
+  const optAno = `<option value="tudo"${F.ano==="tudo"?" selected":""}>Todos os anos</option>`+anos.map(y=>`<option value="${y}"${F.ano===y?" selected":""}>${y}</option>`).join("");
+  const optMes = `<option value="todos"${F.mes==="todos"?" selected":""}>Ano todo</option>`+meses.map(m=>`<option value="${m}"${F.mes===m?" selected":""}>${MESES[+m-1]}</option>`).join("");
+  const optSem = `<option value="todas"${F.semana==="todas"?" selected":""}>Mês todo</option>`+semanas.map(s=>`<option value="${s}"${F.semana===s?" selected":""}>Semana de ${ddmm(s)}</option>`).join("");
+  const selCls = "rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium";
 
   app.innerHTML = `
   <div class="mx-auto max-w-[1400px] p-5 lg:p-8">
-    <header class="flex flex-wrap items-start justify-between gap-4 mb-6">
+    <header class="flex flex-wrap items-start justify-between gap-4 mb-5">
       <div>
         <h1 class="font-display text-2xl lg:text-3xl font-extrabold">Painel de Gestão</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Coimbra + Lisboa · desde jan/2025 · atualizado ${esc(d.gerado_em||"")}</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Coimbra + Lisboa · atualizado ${esc(PAYLOAD.gerado_em||"")}</p>
       </div>
       <div class="flex items-center gap-2">
-        <button onclick="carregar()" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium hover:text-blue-600 transition-colors"><i data-lucide="refresh-cw" class="h-4 w-4"></i> Atualizar</button>
+        <button onclick="recalcular()" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 text-sm font-semibold transition-colors"><i data-lucide="refresh-cw" class="h-4 w-4"></i> Recalcular ao vivo</button>
         <button onclick="toggleTheme()" class="grid size-10 place-content-center rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"><i data-lucide="moon" class="h-[18px] w-[18px] dark:hidden"></i><i data-lucide="sun" class="h-[18px] w-[18px] hidden dark:block"></i></button>
       </div>
     </header>
 
-    <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-      ${kpi("wallet","blue","Faturação (mês em curso)",eur(fat.mes_atual_total),`pago ${eur(fat.mes_atual_pago)} · a receber ${eur(fat.mes_atual_por_receber)}`)}
-      ${kpi("alert-triangle","rose","Pagamentos atrasados",eur(pag.valor),`${int(pag.contas)} contas · ${int(pag.criticas)} crítica(s) +30d`)}
-      ${kpi("user-check","emerald","Pacientes ativos",int(pac.ativos),"com marcação nos próximos 30 dias")}
-      ${kpi("user-x","amber","Pacientes sem marcação",int(pac.sem_marcacao_total),`${int(pac.nunca)} nunca iniciaram · ${int(pac.parou)} pararam`)}
+    <div class="flex flex-wrap items-center gap-2 mb-2">
+      <select class="${selCls}" onchange="onAno(this.value)">${optAno}</select>
+      <select class="${selCls} ${F.ano==="tudo"?"opacity-50 pointer-events-none":""}" onchange="onMes(this.value)">${optMes}</select>
+      <select class="${selCls} ${(F.ano==="tudo"||F.mes==="todos")?"opacity-50 pointer-events-none":""}" onchange="onSemana(this.value)">${optSem}</select>
+      <span class="text-sm text-slate-400 dark:text-slate-500 ml-1">a ver: <span class="font-semibold text-slate-600 dark:text-slate-300">${esc(rotuloEscopo())}</span></span>
+    </div>
+
+    <section class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6 mt-4">
+      ${kpi("wallet","blue","Faturação",eur(a.fat_total),`recebido ${eur(a.fat_pago)} · a receber ${eur(por_receber)}`)}
+      ${kpi("stethoscope","emerald","Atendimentos",int(a.atend),`${int(totalSess)} sessões de escoliose`)}
+      ${kpi("user","sky","Individuais",int(a.atend_ind),"1 paciente no horário")}
+      ${kpi("users","violet","Em dupla",int(a.atend_dup),`${totalSess?Math.round(a.atend_dup/totalSess*100):0}% das sessões`)}
     </section>
 
     <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
       <div class="lg:col-span-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
-        <div class="flex items-start justify-between mb-1">
-          <div><h2 class="font-display font-bold">Faturação mensal</h2><p class="text-xs text-slate-500 dark:text-slate-400">Contas por vencimento · desde jan/2025</p></div>
-          <div class="text-right"><div class="num font-display text-2xl font-extrabold">${eur(acumulado)}</div><div class="text-xs text-slate-400">acumulado no período</div></div>
-        </div>
+        <div class="flex items-start justify-between mb-1"><div><h2 class="font-display font-bold">Faturação</h2><p class="text-xs text-slate-500 dark:text-slate-400">Por ${sc.tipo==="semana"?"semana":"mês"} · ${esc(rotuloEscopo())}</p></div>
+          <div class="text-right"><div class="num font-display text-xl font-extrabold">${eur(a.fat_total)}</div><div class="text-xs text-slate-400">no período</div></div></div>
         <div id="fatChart" class="mt-3"></div>
         <div class="flex items-center gap-4 mt-2 text-xs text-slate-500 dark:text-slate-400">
-          <span class="flex items-center gap-1.5"><span class="h-2 w-4 rounded-full bg-blue-600"></span>Total faturado</span>
-          <span class="flex items-center gap-1.5"><span class="h-2 w-4 rounded-full bg-emerald-500"></span>Já recebido</span>
-        </div>
+          <span class="flex items-center gap-1.5"><span class="h-2 w-4 rounded-full bg-blue-600"></span>Faturado</span>
+          <span class="flex items-center gap-1.5"><span class="h-2 w-4 rounded-full bg-emerald-500"></span>Recebido</span></div>
       </div>
       <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col">
         <h2 class="font-display font-bold mb-1">Dupla × Individual</h2>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Sessões de escoliose realizadas</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">${esc(rotuloEscopo())}</p>
         <div class="flex-1 grid place-content-center"><div id="donut"></div></div>
         <div id="donutLegend" class="space-y-2 mt-4"></div>
       </div>
     </section>
 
-    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
       <div class="lg:col-span-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
-        <div class="flex items-start justify-between mb-4"><div><h2 class="font-display font-bold">Atendimentos por semana</h2><p class="text-xs text-slate-500 dark:text-slate-400">Sessões realizadas · últimas 12 semanas</p></div></div>
-        <div id="weekChart"></div>
+        <div class="mb-4"><h2 class="font-display font-bold">Atendimentos por ${sc.tipo==="semana"?"semana":"mês"}</h2><p class="text-xs text-slate-500 dark:text-slate-400">${esc(rotuloEscopo())}</p></div>
+        <div id="atendChart"></div>
       </div>
       <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
-        <h2 class="font-display font-bold mb-1">Atendimentos por profissional</h2>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Realizados no período</p>
+        <h2 class="font-display font-bold mb-1">Por profissional</h2>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">${esc(rotuloEscopo())}</p>
         <div class="space-y-3.5" id="pros"></div>
       </div>
     </section>
 
+    <div class="flex items-center gap-2 mb-3"><i data-lucide="clock" class="h-4 w-4 text-slate-400"></i><h2 class="font-display font-bold">Situação atual</h2><span class="text-xs text-slate-400">(não muda com o filtro)</span></div>
+    <section class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      ${kpi("alert-triangle","rose","Pagamentos atrasados",eur(pag.valor),`${int(pag.contas)} contas · ${int(pag.criticas)} crítica(s) +30d`)}
+      ${kpi("user-check","emerald","Pacientes ativos",int(at.ativos),"com marcação nos próximos 30 dias")}
+      ${kpi("user-x","amber","Sem marcação",int(at.sem_marcacao_total),`${int(at.nunca)} nunca iniciaram · ${int(at.parou)} pararam`)}
+    </section>
+
     <section class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
-      <div class="flex items-center justify-between mb-1">
-        <h2 class="font-display font-bold">Pacientes sem marcação</h2>
-        <span class="num rounded-full bg-amber-100 dark:bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">${int(pac.sem_marcacao_total)}</span>
-      </div>
-      <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Já atendidos, sem sessão futura marcada — priorizados por dias sem marcação</p>
+      <div class="flex items-center justify-between mb-1"><h2 class="font-display font-bold">Pacientes sem marcação</h2>
+        <span class="num rounded-full bg-amber-100 dark:bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">${int(at.sem_marcacao_total)}</span></div>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Já atendidos, sem sessão futura — priorizados por dias sem marcação</p>
       <div class="overflow-x-auto"><table class="w-full text-sm"><thead>
         <tr class="text-left text-xs uppercase tracking-wide text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800">
-          <th class="py-2 pr-3 font-semibold">Paciente</th><th class="py-2 pr-3 font-semibold">Unidade</th>
-          <th class="py-2 pr-3 font-semibold">Situação</th><th class="py-2 pr-3 font-semibold text-right">Dias</th><th class="py-2 font-semibold">Contacto</th>
+          <th class="py-2 pr-3 font-semibold">Paciente</th><th class="py-2 pr-3 font-semibold">Unidade</th><th class="py-2 pr-3 font-semibold">Situação</th><th class="py-2 pr-3 font-semibold text-right">Dias</th><th class="py-2 font-semibold">Contacto</th>
         </tr></thead><tbody id="semMarc"></tbody></table></div>
     </section>
 
-    <p class="text-center text-xs text-slate-400 dark:text-slate-600 mt-8">Dados ao vivo do seufisio · atualização automática diária · painel privado</p>
+    <p class="text-center text-xs text-slate-400 dark:text-slate-600 mt-8">Dados do seufisio · atualização automática diária · "Recalcular ao vivo" força a busca imediata</p>
   </div>`;
 
-  chartFaturacao(fat.mensal||[]);
-  donutDI(indiv, dup);
-  chartSemana(at.semana||[]);
-  barsProf(at.por_profissional||[]);
-  tabelaSemMarc(pac.lista||[]);
-  if(window.lucide) lucide.createIcons();
+  const serieFat = sc.items.map(b => ({ label: b.ini?ddmm(b.ini):mesLabelP(b.periodo), total:b.fat_total, pago:b.fat_pago }));
+  const serieAt = sc.items.map(b => ({ label: b.ini?ddmm(b.ini):mesLabelP(b.periodo), n:b.atend }));
+  chartFat(serieFat);
+  donutDI(a.atend_ind, a.atend_dup);
+  chartBars(serieAt, "atendChart");
+  barsProf(a.prof);
+  tabelaSemMarc(at.lista||[]);
+  icons();
 }
 
 function kpi(icon,tint,label,valor,sub){
-  const map={blue:["bg-blue-50 dark:bg-blue-500/15","text-blue-600 dark:text-blue-400"],rose:["bg-rose-50 dark:bg-rose-500/15","text-rose-600 dark:text-rose-400"],emerald:["bg-emerald-50 dark:bg-emerald-500/15","text-emerald-600 dark:text-emerald-400"],amber:["bg-amber-50 dark:bg-amber-500/15","text-amber-600 dark:text-amber-400"]};
+  const map={blue:["bg-blue-50 dark:bg-blue-500/15","text-blue-600 dark:text-blue-400"],rose:["bg-rose-50 dark:bg-rose-500/15","text-rose-600 dark:text-rose-400"],emerald:["bg-emerald-50 dark:bg-emerald-500/15","text-emerald-600 dark:text-emerald-400"],amber:["bg-amber-50 dark:bg-amber-500/15","text-amber-600 dark:text-amber-400"],violet:["bg-violet-50 dark:bg-violet-500/15","text-violet-600 dark:text-violet-400"],sky:["bg-sky-50 dark:bg-sky-500/15","text-sky-600 dark:text-sky-400"]};
   const [bg,fg]=map[tint];
   return `<div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm">
     <span class="grid size-10 place-content-center rounded-xl ${bg} mb-4"><i data-lucide="${icon}" class="h-5 w-5 ${fg}"></i></span>
@@ -181,75 +237,67 @@ function kpi(icon,tint,label,valor,sub){
     <div class="mt-2 text-sm font-medium text-slate-600 dark:text-slate-300">${label}</div>
     <div class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">${sub}</div></div>`;
 }
-
-function chartFaturacao(mensal){
-  if(!mensal.length){ document.getElementById("fatChart").innerHTML=""; return; }
+function chartFat(serie){
+  const el=document.getElementById("fatChart"); if(!el) return;
+  if(!serie.length){ el.innerHTML='<div class="text-sm text-slate-400 py-10 text-center">Sem dados no período.</div>'; return; }
   const w=660,h=210,padL=44,padR=14,padT=14,padB=30;
-  const vals=mensal.map(m=>m.total);
-  const max=Math.max(...vals,1)*1.08, min=0;
-  const x=i=>padL+(i*(w-padL-padR))/Math.max(mensal.length-1,1);
+  const max=Math.max(...serie.map(m=>m.total),1)*1.08,min=0;
+  const n=serie.length;
+  const x=i=>padL+(i*(w-padL-padR))/Math.max(n-1,1);
   const y=v=>h-padB-((v-min)/(max-min))*(h-padT-padB);
-  const line=mensal.map((m,i)=>(i?"L":"M")+x(i).toFixed(1)+" "+y(m.total).toFixed(1)).join(" ");
-  const linePago=mensal.map((m,i)=>(i?"L":"M")+x(i).toFixed(1)+" "+y(m.pago).toFixed(1)).join(" ");
-  const area=line+" L"+x(mensal.length-1).toFixed(1)+" "+(h-padB)+" L"+x(0).toFixed(1)+" "+(h-padB)+" Z";
   let grid="",yl="";
-  for(let g=0;g<=3;g++){ const v=min+(g/3)*(max-min), gy=y(v);
+  for(let g=0;g<=3;g++){const v=min+(g/3)*(max-min),gy=y(v);
     grid+=`<line x1="${padL}" y1="${gy.toFixed(1)}" x2="${w-padR}" y2="${gy.toFixed(1)}" class="stroke-slate-100 dark:stroke-slate-800" stroke-width="1"/>`;
-    yl+=`<text x="${padL-8}" y="${(gy+4).toFixed(1)}" text-anchor="end" class="fill-slate-400 dark:fill-slate-500" font-size="10">${Math.round(v/1000)}k</text>`; }
-  let xl="";
-  mensal.forEach((m,i)=>{ if(i%3===0||i===mensal.length-1) xl+=`<text x="${x(i).toFixed(1)}" y="${h-8}" text-anchor="middle" class="fill-slate-400 dark:fill-slate-500" font-size="10">${mesLabel(m.mes)}</text>`; });
-  const lx=x(mensal.length-1).toFixed(1), ly=y(mensal[mensal.length-1].total).toFixed(1);
-  document.getElementById("fatChart").innerHTML=`<svg viewBox="0 0 ${w} ${h}" class="w-full h-auto">
-    <defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2563eb" stop-opacity="0.24"/><stop offset="100%" stop-color="#2563eb" stop-opacity="0"/></linearGradient></defs>
-    ${grid}${yl}<path d="${area}" fill="url(#fg)"/>
-    <path d="${linePago}" fill="none" stroke="#10b981" stroke-width="1.75" stroke-dasharray="3 3" stroke-linejoin="round"/>
-    <path d="${line}" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round"/>
-    <circle cx="${lx}" cy="${ly}" r="4.5" fill="#2563eb" stroke="white" stroke-width="2.5"/>${xl}</svg>`;
+    yl+=`<text x="${padL-8}" y="${(gy+4).toFixed(1)}" text-anchor="end" class="fill-slate-400 dark:fill-slate-500" font-size="10">${Math.round(v/1000)}k</text>`;}
+  let xl=""; const step=Math.ceil(n/8);
+  serie.forEach((m,i)=>{ if(i%step===0||i===n-1) xl+=`<text x="${x(i).toFixed(1)}" y="${h-8}" text-anchor="middle" class="fill-slate-400 dark:fill-slate-500" font-size="10">${esc(m.label)}</text>`; });
+  let svg;
+  if(n===1){
+    const bw=90,bx=w/2-bw/2;
+    svg=`${grid}${yl}<rect x="${bx}" y="${y(serie[0].total).toFixed(1)}" width="${bw}" height="${(h-padB-y(serie[0].total)).toFixed(1)}" rx="6" class="fill-blue-600"/>`
+      +`<rect x="${bx}" y="${y(serie[0].pago).toFixed(1)}" width="${bw}" height="${(h-padB-y(serie[0].pago)).toFixed(1)}" rx="6" class="fill-emerald-500" opacity="0.55"/>${xl}`;
+  } else {
+    const line=serie.map((m,i)=>(i?"L":"M")+x(i).toFixed(1)+" "+y(m.total).toFixed(1)).join(" ");
+    const lp=serie.map((m,i)=>(i?"L":"M")+x(i).toFixed(1)+" "+y(m.pago).toFixed(1)).join(" ");
+    const area=line+` L${x(n-1).toFixed(1)} ${h-padB} L${x(0).toFixed(1)} ${h-padB} Z`;
+    svg=`<defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2563eb" stop-opacity="0.24"/><stop offset="100%" stop-color="#2563eb" stop-opacity="0"/></linearGradient></defs>${grid}${yl}<path d="${area}" fill="url(#fg)"/><path d="${lp}" fill="none" stroke="#10b981" stroke-width="1.75" stroke-dasharray="3 3" stroke-linejoin="round"/><path d="${line}" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round"/><circle cx="${x(n-1).toFixed(1)}" cy="${y(serie[n-1].total).toFixed(1)}" r="4.5" fill="#2563eb" stroke="white" stroke-width="2.5"/>${xl}`;
+  }
+  el.innerHTML=`<svg viewBox="0 0 ${w} ${h}" class="w-full h-auto">${svg}</svg>`;
 }
-
+function chartBars(serie,elId){
+  const el=document.getElementById(elId); if(!el) return;
+  if(!serie.length){ el.innerHTML='<div class="text-sm text-slate-400 py-10 text-center">Sem dados no período.</div>'; return; }
+  const w=660,h=200,padL=30,padR=10,padT=16,padB=26;
+  const max=Math.max(...serie.map(s=>s.n),1)*1.14,n=serie.length,gap=n>20?3:8;
+  const bw=Math.max(2,(w-padL-padR-gap*(n-1))/n),y=v=>h-padB-(v/max)*(h-padT-padB);
+  let bars="",xl=""; const step=Math.ceil(n/12);
+  serie.forEach((s,i)=>{const bx=padL+i*(bw+gap),by=y(s.n),bh=(h-padB)-by,last=i===n-1;
+    bars+=`<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="${bw>6?4:1}" class="${last?"fill-blue-600":"fill-blue-200 dark:fill-blue-500/40"}"/>`;
+    if(n<=16) bars+=`<text x="${(bx+bw/2).toFixed(1)}" y="${(by-5).toFixed(1)}" text-anchor="middle" class="fill-slate-400 dark:fill-slate-500 num" font-size="9">${s.n}</text>`;
+    if(i%step===0||last) xl+=`<text x="${(bx+bw/2).toFixed(1)}" y="${h-8}" text-anchor="middle" class="fill-slate-400 dark:fill-slate-500" font-size="9">${esc(s.label)}</text>`;});
+  el.innerHTML=`<svg viewBox="0 0 ${w} ${h}" class="w-full h-auto">${bars}${xl}</svg>`;
+}
 function donutDI(indiv,dup){
+  const el=document.getElementById("donut"); const leg=document.getElementById("donutLegend"); if(!el) return;
   const seg=[{label:"Individual",note:"1 paciente no horário",value:indiv,color:"#2563eb"},{label:"Em dupla",note:"2 no mesmo horário/profissional",value:dup,color:"#7c3aed"}];
-  const total=indiv+dup, r=52,cx=70,cy=70,C=2*Math.PI*r; let off=0,circles="";
-  seg.forEach(s=>{ const len=total?(s.value/total)*C:0; circles+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="16" stroke-dasharray="${len.toFixed(2)} ${(C-len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"/>`; off+=len; });
-  document.getElementById("donut").innerHTML=`<svg viewBox="0 0 140 140" class="w-40 h-40" style="transform:rotate(-90deg)">
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" class="stroke-slate-100 dark:stroke-slate-800" stroke-width="16"/>${circles}
-    <text x="70" y="66" text-anchor="middle" transform="rotate(90 70 70)" class="fill-slate-900 dark:fill-slate-100 num" font-size="24" font-weight="800" font-family="Plus Jakarta Sans">${int(total)}</text>
-    <text x="70" y="84" text-anchor="middle" transform="rotate(90 70 70)" class="fill-slate-400 dark:fill-slate-500" font-size="11">sessões</text></svg>`;
-  document.getElementById("donutLegend").innerHTML=seg.map(s=>{ const pct=total?Math.round(s.value/total*100):0;
-    return `<div class="flex items-center gap-2.5"><span class="h-2.5 w-2.5 rounded-full shrink-0" style="background:${s.color}"></span>
-      <div class="min-w-0 flex-1"><div class="flex items-baseline justify-between gap-2"><span class="text-sm font-medium">${s.label}</span><span class="num text-sm font-semibold">${int(s.value)} <span class="text-slate-400 font-normal">· ${pct}%</span></span></div>
-      <div class="text-xs text-slate-400 dark:text-slate-500">${s.note}</div></div></div>`; }).join("");
+  const total=indiv+dup,r=52,cx=70,cy=70,C=2*Math.PI*r;let off=0,circles="";
+  seg.forEach(s=>{const len=total?(s.value/total)*C:0;circles+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="16" stroke-dasharray="${len.toFixed(2)} ${(C-len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"/>`;off+=len;});
+  el.innerHTML=`<svg viewBox="0 0 140 140" class="w-40 h-40" style="transform:rotate(-90deg)"><circle cx="${cx}" cy="${cy}" r="${r}" fill="none" class="stroke-slate-100 dark:stroke-slate-800" stroke-width="16"/>${circles}<text x="70" y="66" text-anchor="middle" transform="rotate(90 70 70)" class="fill-slate-900 dark:fill-slate-100 num" font-size="24" font-weight="800" font-family="Plus Jakarta Sans">${int(total)}</text><text x="70" y="84" text-anchor="middle" transform="rotate(90 70 70)" class="fill-slate-400 dark:fill-slate-500" font-size="11">sessões</text></svg>`;
+  leg.innerHTML=seg.map(s=>{const pct=total?Math.round(s.value/total*100):0;
+    return `<div class="flex items-center gap-2.5"><span class="h-2.5 w-2.5 rounded-full shrink-0" style="background:${s.color}"></span><div class="min-w-0 flex-1"><div class="flex items-baseline justify-between gap-2"><span class="text-sm font-medium">${s.label}</span><span class="num text-sm font-semibold">${int(s.value)} <span class="text-slate-400 font-normal">· ${pct}%</span></span></div><div class="text-xs text-slate-400 dark:text-slate-500">${s.note}</div></div></div>`;}).join("");
 }
-
-function chartSemana(semana){
-  if(!semana.length){ document.getElementById("weekChart").innerHTML=""; return; }
-  const w=660,h=200,padL=30,padR=10,padT=12,padB=26;
-  const max=Math.max(...semana.map(s=>s.n),1)*1.12, n=semana.length, gap=10;
-  const bw=(w-padL-padR-gap*(n-1))/n, y=v=>h-padB-(v/max)*(h-padT-padB);
-  let bars="",xl="";
-  semana.forEach((s,i)=>{ const bx=padL+i*(bw+gap),by=y(s.n),bh=(h-padB)-by,last=i===n-1;
-    bars+=`<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="4" class="${last?"fill-blue-600":"fill-blue-200 dark:fill-blue-500/40"}"/>`;
-    bars+=`<text x="${(bx+bw/2).toFixed(1)}" y="${(by-5).toFixed(1)}" text-anchor="middle" class="fill-slate-400 dark:fill-slate-500 num" font-size="9">${s.n}</text>`;
-    if(i%2===0||last) xl+=`<text x="${(bx+bw/2).toFixed(1)}" y="${h-8}" text-anchor="middle" class="fill-slate-400 dark:fill-slate-500" font-size="9">${ddmm(s.ini)}</text>`; });
-  document.getElementById("weekChart").innerHTML=`<svg viewBox="0 0 ${w} ${h}" class="w-full h-auto">${bars}${xl}</svg>`;
+function barsProf(profMap){
+  const el=document.getElementById("pros"); if(!el) return;
+  const arr=Object.entries(profMap||{}).map(([nome,n])=>({nome,n})).sort((a,b)=>b.n-a.n);
+  if(!arr.length){ el.innerHTML='<div class="text-sm text-slate-400 py-6 text-center">Sem dados no período.</div>'; return; }
+  const max=Math.max(...arr.map(p=>p.n),1);
+  el.innerHTML=arr.map(p=>`<div><div class="flex items-baseline justify-between mb-1"><span class="text-sm font-medium">${esc(p.nome)}</span><span class="num text-sm font-semibold">${int(p.n)}</span></div><div class="h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div class="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600" style="width:${(p.n/max*100).toFixed(0)}%"></div></div></div>`).join("");
 }
-
-function barsProf(pros){
-  const max=Math.max(...pros.map(p=>p.n),1);
-  document.getElementById("pros").innerHTML=pros.map(p=>`<div>
-    <div class="flex items-baseline justify-between mb-1"><span class="text-sm font-medium">${esc(p.nome)} <span class="text-xs text-slate-400 font-normal">· ${esc(p.unidade)}</span></span><span class="num text-sm font-semibold">${int(p.n)}</span></div>
-    <div class="h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div class="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600" style="width:${(p.n/max*100).toFixed(0)}%"></div></div></div>`).join("");
-}
-
 function tabelaSemMarc(lista){
-  const tag = s => s==="Avaliado, nunca iniciou"
-    ? '<span class="rounded px-1.5 py-0.5 text-[11px] font-medium bg-violet-100 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400">nunca iniciou</span>'
-    : '<span class="rounded px-1.5 py-0.5 text-[11px] font-medium bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400">parou</span>';
-  const tel = t => { const d=String(t||"").replace(/[^\d+]/g,""); return d?`<a href="tel:${d}" class="text-blue-600 dark:text-blue-400 hover:underline">${esc(t)}</a>`:'<span class="text-slate-400">—</span>'; };
-  document.getElementById("semMarc").innerHTML = lista.length ? lista.map(p=>`<tr class="border-b border-slate-50 dark:border-slate-800/60">
-    <td class="py-2.5 pr-3 font-medium">${esc(p.cliente)}</td><td class="py-2.5 pr-3 text-slate-500 dark:text-slate-400">${esc(p.unidades)}</td>
-    <td class="py-2.5 pr-3">${tag(p.situacao)}</td><td class="py-2.5 pr-3 text-right num">${p.dias!=null?int(p.dias):""}</td><td class="py-2.5">${tel(p.telefone)}</td></tr>`).join("")
-    : '<tr><td colspan="5" class="py-4 text-center text-slate-400">Nenhum paciente sem marcação.</td></tr>';
+  const el=document.getElementById("semMarc"); if(!el) return;
+  const tag=s=>s==="Avaliado, nunca iniciou"?'<span class="rounded px-1.5 py-0.5 text-[11px] font-medium bg-violet-100 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400">nunca iniciou</span>':'<span class="rounded px-1.5 py-0.5 text-[11px] font-medium bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400">parou</span>';
+  const tel=t=>{const d=String(t||"").replace(/[^\d+]/g,"");return d?`<a href="tel:${d}" class="text-blue-600 dark:text-blue-400 hover:underline">${esc(t)}</a>`:'<span class="text-slate-400">—</span>';};
+  el.innerHTML=lista.length?lista.map(p=>`<tr class="border-b border-slate-50 dark:border-slate-800/60"><td class="py-2.5 pr-3 font-medium">${esc(p.cliente)}</td><td class="py-2.5 pr-3 text-slate-500 dark:text-slate-400">${esc(p.unidades)}</td><td class="py-2.5 pr-3">${tag(p.situacao)}</td><td class="py-2.5 pr-3 text-right num">${p.dias!=null?int(p.dias):""}</td><td class="py-2.5">${tel(p.telefone)}</td></tr>`).join(""):'<tr><td colspan="5" class="py-4 text-center text-slate-400">Nenhum.</td></tr>';
 }
 
 carregar();
