@@ -26,6 +26,12 @@
   .num { font-variant-numeric: tabular-nums; }
   .spin { width:18px;height:18px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:sp .7s linear infinite }
   @keyframes sp { to { transform: rotate(360deg) } }
+  /* brilho roxo que varre o botao ao passar o rato (estilo epcurve) */
+  .sh { position: relative; overflow: hidden; }
+  .sh::after { content:''; position:absolute; top:0; left:-85%; width:60%; height:100%; background:linear-gradient(100deg, transparent, rgba(168,85,247,0.55), transparent); transform:skewX(-20deg); pointer-events:none; }
+  .sh:hover::after { animation: shine .85s ease; }
+  @keyframes shine { from { left:-85%; } to { left:145%; } }
+  .sh:hover { box-shadow: 0 8px 26px rgba(168,85,247,0.45); border-color: rgba(168,85,247,0.55) !important; }
   select { -webkit-appearance:none; appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>"); background-repeat:no-repeat; background-position:right 8px center; padding-right:28px; }
   *:focus-visible { outline:2px solid #2563eb; outline-offset:2px; border-radius:6px }
   @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
@@ -70,7 +76,7 @@ function pedirCodigo(msg){
     ${msg?`<div class="mb-3 text-sm rounded-lg bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 px-3 py-2">${esc(msg)}</div>`:""}
     <label class="text-sm font-medium">Código de acesso</label>
     <input id="cod" type="password" autocomplete="off" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2" />
-    <button id="ok" class="mt-4 w-full rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 transition-colors">Entrar</button></div></div>`;
+    <button id="ok" class="sh mt-4 w-full rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 transition-colors">Entrar</button></div></div>`;
   icons();
   const go = () => { const c=document.getElementById("cod").value.trim(); if(c){ setCode(c); carregar(); } };
   document.getElementById("ok").onclick = go;
@@ -201,7 +207,7 @@ function render(){
   const optProf = `<option value="todos"${F.prof==="todos"?" selected":""}>Todos os profissionais</option>`+profsRec.map(p=>`<option value="${esc(p.nome)}"${F.prof===p.nome?" selected":""}>${esc(p.nome)} · ${esc((p.unidades||[]).join(", "))}</option>`).join("");
   const optServ = Object.keys(SERVICO_LABEL).map(k=>`<option value="${k}"${F.servico===k?" selected":""}>${esc(SERVICO_LABEL[k])}</option>`).join("");
   const selCls = "rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium";
-  const uniBtn = (v,label) => { const on=F.unidade===v; return `<button onclick="onUni('${v}')" class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${on?"bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900":"text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"}">${label}</button>`; };
+  const uniBtn = (v,label) => { const on=F.unidade===v; return `<button onclick="onUni('${v}')" class="sh rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${on?"bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900":"text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"}">${label}</button>`; };
 
   app.innerHTML = `
   <div class="mx-auto max-w-[1400px] p-5 lg:p-8">
@@ -209,8 +215,8 @@ function render(){
       <div><h1 class="font-display text-2xl lg:text-3xl font-extrabold">Painel de Gestão</h1>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Escoliose Portugal · atualizado ${esc(PAYLOAD.gerado_em||"")}</p></div>
       <div class="flex items-center gap-2">
-        <button onclick="recalcular()" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 text-sm font-semibold transition-colors"><i data-lucide="refresh-cw" class="h-4 w-4"></i> Recalcular ao vivo</button>
-        <button onclick="toggleTheme()" class="grid size-10 place-content-center rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"><i data-lucide="moon" class="h-[18px] w-[18px] dark:hidden"></i><i data-lucide="sun" class="h-[18px] w-[18px] hidden dark:block"></i></button>
+        <button onclick="recalcular()" class="sh inline-flex items-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 text-sm font-semibold transition-colors"><i data-lucide="refresh-cw" class="h-4 w-4"></i> Recalcular ao vivo</button>
+        <button onclick="toggleTheme()" class="sh grid size-10 place-content-center rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"><i data-lucide="moon" class="h-[18px] w-[18px] dark:hidden"></i><i data-lucide="sun" class="h-[18px] w-[18px] hidden dark:block"></i></button>
       </div>
     </header>
 
@@ -265,9 +271,9 @@ function render(){
       <span class="text-xs text-slate-400">${int(at.ativos)} ativos · ${int(at.sem_marcacao_total)} sem marcação · ${eur((at.pagamentos_atrasados||{}).valor)} em atraso — todas as unidades</span></div>
     <section class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm mb-8">
       <div class="flex items-center gap-1 p-2 border-b border-slate-100 dark:border-slate-800">
-        <button onclick="setTab('atrasados')" class="rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${UI.tab==='atrasados'?"bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400":"text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"}">Pagamentos atrasados <span class="num">· ${int(atrL.length)} · ${eur(atrSum)}</span></button>
-        <button onclick="setTab('sem')" class="rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${UI.tab==='sem'?"bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400":"text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"}">Sem marcação <span class="num">· ${int(semL.length)}</span></button>
-        <button onclick="toggleAberto()" class="ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"><i data-lucide="${UI.aberto?'chevron-up':'chevron-down'}" class="h-4 w-4"></i>${UI.aberto?"Recolher":"Expandir lista"}</button>
+        <button onclick="setTab('atrasados')" class="sh rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${UI.tab==='atrasados'?"bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400":"text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"}">Pagamentos atrasados <span class="num">· ${int(atrL.length)} · ${eur(atrSum)}</span></button>
+        <button onclick="setTab('sem')" class="sh rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${UI.tab==='sem'?"bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400":"text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"}">Sem marcação <span class="num">· ${int(semL.length)}</span></button>
+        <button onclick="toggleAberto()" class="sh ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"><i data-lucide="${UI.aberto?'chevron-up':'chevron-down'}" class="h-4 w-4"></i>${UI.aberto?"Recolher":"Expandir lista"}</button>
       </div>
       ${UI.aberto?`<div class="p-4"><div class="overflow-x-auto"><table class="w-full text-sm" id="tbl"></table></div></div>`
         :`<div class="p-4 text-sm text-slate-400 dark:text-slate-500">Toque em “Expandir lista” para ver a relação de ${UI.tab==='atrasados'?'pagamentos atrasados':'pacientes sem marcação'}.</div>`}
