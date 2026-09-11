@@ -78,7 +78,16 @@ function toggleTheme(){ const d=!document.documentElement.classList.contains("da
 
 let PAYLOAD = null;
 const F = { ano:"tudo", mes:"todos", semana:"todas", unidade:"todas", prof:"todos", servico:"todos" };
-const UI = { tab:"atrasados", aberto:false };
+const UI = { tab:"atrasados", aberto:false, view:"geral", nav:false };
+const VIEW_TITULO = { geral:"Visão geral", financeiro:"Financeiro", atendimentos:"Atendimentos", pacientes:"Pacientes" };
+const NAV_ITENS = [
+  { id:"geral", label:"Visão geral", icon:"layout-dashboard" },
+  { id:"financeiro", label:"Financeiro", icon:"wallet" },
+  { id:"atendimentos", label:"Atendimentos", icon:"stethoscope" },
+  { id:"pacientes", label:"Pacientes", icon:"users" },
+];
+function setView(v){ UI.view=v; UI.nav=false; if(v==="financeiro") UI.tab="atrasados"; if(v==="pacientes") UI.tab="sem"; render(); }
+function toggleNav(){ UI.nav=!UI.nav; render(); }
 
 // ---------- gate + carregamento ----------
 function pedirCodigo(msg){
@@ -197,6 +206,20 @@ function semMarcFiltrados(){
   return l;
 }
 
+// ---------- sidebar ----------
+function sidebarHTML(V){
+  const item = (it) => { const on=V===it.id; return `<button onclick="setView('${it.id}')" class="sh flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${on?"bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300":"text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"}"><i data-lucide="${it.icon}" class="h-[18px] w-[18px] shrink-0"></i><span>${it.label}</span></button>`; };
+  return `<nav class="fixed lg:sticky top-0 z-40 h-screen w-60 shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 flex flex-col transition-transform duration-300 ${UI.nav?"translate-x-0":"-translate-x-full"} lg:translate-x-0">
+    <div class="flex items-center gap-3 px-2 py-3 mb-3 border-b border-slate-200 dark:border-slate-800">
+      <span class="grid size-9 shrink-0 place-content-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white"><i data-lucide="activity" class="h-5 w-5"></i></span>
+      <div class="min-w-0"><div class="font-display font-bold text-sm truncate">Escoliose Portugal</div><div class="text-xs text-slate-500">Painel de gestão</div></div>
+      <button onclick="toggleNav()" class="ml-auto lg:hidden text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i data-lucide="x" class="h-5 w-5"></i></button>
+    </div>
+    <div class="space-y-1">${NAV_ITENS.map(item).join("")}</div>
+    <div class="mt-auto px-3 py-2 text-[11px] text-slate-400 dark:text-slate-600">Dados do seufisio · desde jan/2024</div>
+  </nav>`;
+}
+
 // ---------- render ----------
 function render(){
   if(!PAYLOAD) return;
@@ -211,12 +234,15 @@ function render(){
   const fatMap = {}; for(const b of (PAYLOAD.mensal||[])) fatMap[b.periodo]=b;
   const fatAncora = aggFat(fatMap[anchor]?[fatMap[anchor]]:[]);
   const anchorLabel = (MESES[+anchor.slice(5,7)-1]||"")+"/"+anchor.slice(2,4);
-  const totalSess = a.atend_ind + a.atend_dup;
+  const totalSess = a.ind + a.dup;                 // sessoes (horarios) = individuais + dupla
+  const pctDup = totalSess ? Math.round(a.dup/totalSess*100) : 0;
   const at = PAYLOAD.atual || {};
-
+  const pag = at.pagamentos_atrasados || {valor:0,contas:0,criticas:0};
   const atrL = atrasadosFiltrados(), semL = semMarcFiltrados();
   const atrSum = atrL.reduce((s,x)=>s+(x.valor||0),0);
+  const V = UI.view || "geral";
 
+  // ---- filtros ----
   const anos = anosDisp();
   const meses = F.ano!=="tudo" ? mesesDisp(F.ano) : [];
   const semanas = (F.ano!=="tudo" && F.mes!=="todos") ? semanasDisp(F.ano+"-"+F.mes) : [];
@@ -228,82 +254,101 @@ function render(){
   const selCls = "rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium";
   const uniBtn = (v,label) => { const on=F.unidade===v; return `<button onclick="onUni('${v}')" class="sh rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${on?"bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900":"text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"}">${label}</button>`; };
 
-  app.innerHTML = `
-  <div class="mx-auto max-w-[1400px] p-5 lg:p-8">
-    <header class="flex flex-wrap items-start justify-between gap-4 mb-5">
-      <div><h1 class="font-display text-2xl lg:text-3xl font-extrabold">Painel de Gestão</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Escoliose Portugal · atualizado ${esc(PAYLOAD.gerado_em||"")}</p></div>
-      <div class="flex items-center gap-2">
-        <button onclick="recalcular()" class="sh inline-flex items-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 text-sm font-semibold transition-colors"><i data-lucide="refresh-cw" class="h-4 w-4"></i> Recalcular ao vivo</button>
-        <button onclick="toggleTheme()" class="sh grid size-10 place-content-center rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"><i data-lucide="moon" class="h-[18px] w-[18px] dark:hidden"></i><i data-lucide="sun" class="h-[18px] w-[18px] hidden dark:block"></i></button>
-      </div>
-    </header>
+  // ---- KPIs ----
+  const kFat = kpi("wallet","blue","Faturação",eur(f.total),`recebido ${eur(f.pago)} · a receber ${eur(por_receber)}`);
+  const kAt  = kpi("stethoscope","emerald","Atendimentos",int(a.atend),`${int(totalSess)} sessões de escoliose`);
+  const kInd = kpi("user","sky","Sessões individuais",int(a.ind),`${totalSess?100-pctDup:0}% das horas`);
+  const kDup = kpi("users","violet","Sessões em dupla",int(a.dup),`${pctDup}% das horas`);
+  const kAtr = kpi("alert-triangle","rose","Pagamentos atrasados",eur(pag.valor),`${int(pag.contas)} contas · ${int(pag.criticas)} crítica(s) +30d`);
+  const kAtivos = kpi("user-check","emerald","Pacientes ativos",int(at.ativos),"com marcação nos próximos 30 dias");
+  const kSem = kpi("user-x","amber","Sem marcação",int(at.sem_marcacao_total),`${int(at.nunca)} nunca iniciaram · ${int(at.parou)} pararam`);
 
-    <div class="flex flex-wrap items-center gap-2 mb-2">
-      <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1">${uniBtn("todas","Ambas")}${uniBtn("Coimbra","Coimbra")}${uniBtn("Lisboa","Lisboa")}</div>
-      <select class="${selCls}" onchange="onProf(this.value)">${optProf}</select>
-      <select class="${selCls}" onchange="onServ(this.value)" title="Filtra a faturação por tipo de serviço">${optServ}</select>
-      <span class="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-1"></span>
-      <select class="${selCls}" onchange="onAno(this.value)">${optAno}</select>
-      <select class="${selCls} ${F.ano==="tudo"?"opacity-50 pointer-events-none":""}" onchange="onMes(this.value)">${optMes}</select>
-      <select class="${selCls} ${(F.ano==="tudo"||F.mes==="todos")?"opacity-50 pointer-events-none":""}" onchange="onSemana(this.value)">${optSem}</select>
-    </div>
-    <p class="text-sm text-slate-400 dark:text-slate-500 mb-5">${esc(rotuloRecorte())} · <span class="font-semibold text-slate-600 dark:text-slate-300">${esc(rotuloEscopo())}</span>${F.servico!=="todos"?` · faturação: <span class="font-semibold text-slate-600 dark:text-slate-300">${esc(SERVICO_LABEL[F.servico])}</span>`:""}</p>
-
-    <section class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-      ${kpi("wallet","blue","Faturação",eur(f.total),`recebido ${eur(f.pago)} · a receber ${eur(por_receber)}`)}
-      ${kpi("stethoscope","emerald","Atendimentos",int(a.atend),`${int(totalSess)} sessões de escoliose`)}
-      ${kpi("user","sky","Individuais",int(a.atend_ind),"1 paciente no horário")}
-      ${kpi("users","violet","Em dupla",int(a.atend_dup),`${totalSess?Math.round(a.atend_dup/totalSess*100):0}% das sessões`)}
-    </section>
-
-    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-      <div class="lg:col-span-2 beam rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
-        <div class="flex items-start justify-between mb-1"><div><h2 class="font-display font-bold">Faturação — últimos 6 meses</h2><p class="text-xs text-slate-500 dark:text-slate-400">Por mês · vencimento · ${esc(SERVICO_LABEL[F.servico])}${F.prof!=="todos"?" · <span class=\"text-amber-600 dark:text-amber-400\">por unidade (não por profissional)</span>":""}</p></div>
-          <div class="text-right"><div class="num font-display text-xl font-extrabold">${eur(fatAncora.total)}</div><div class="text-xs text-slate-400">em ${esc(anchorLabel)}</div></div></div>
-        <div id="fatChart" class="mt-3"></div>
-        <div class="flex items-center gap-4 mt-2 text-xs text-slate-500 dark:text-slate-400">
-          <span class="flex items-center gap-1.5"><span class="h-2 w-4 rounded-full bg-blue-600"></span>Faturado</span>
-          <span class="flex items-center gap-1.5"><span class="h-2 w-4 rounded-full bg-emerald-500"></span>Recebido</span></div>
-      </div>
-      <div class="beam rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col">
-        <h2 class="font-display font-bold mb-1">Dupla × Individual</h2>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">${esc(rotuloEscopo())}</p>
-        <div class="flex-1 grid place-content-center"><div id="donut"></div></div>
-        <div id="donutLegend" class="space-y-2 mt-4"></div>
-      </div>
-    </section>
-
-    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-      <div class="lg:col-span-2 beam rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
-        <div class="mb-4"><h2 class="font-display font-bold">Atendimentos por ${sc.tipo==="semana"?"semana":"mês"}</h2><p class="text-xs text-slate-500 dark:text-slate-400">${esc(rotuloEscopo())}</p></div>
-        <div id="atendChart"></div>
-      </div>
-      <div class="beam rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
-        <h2 class="font-display font-bold mb-1">Por profissional</h2>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">${esc(rotuloEscopo())}</p>
-        <div class="space-y-3.5" id="pros"></div>
-      </div>
-    </section>
-
-    <div class="flex items-center gap-2 mb-3"><i data-lucide="clock" class="h-4 w-4 text-slate-400"></i><h2 class="font-display font-bold">Situação atual (hoje)</h2>
-      <span class="text-xs text-slate-400">${int(at.ativos)} ativos · ${int(at.sem_marcacao_total)} sem marcação · ${eur((at.pagamentos_atrasados||{}).valor)} em atraso — todas as unidades</span></div>
+  // ---- cartoes ----
+  const cardFat = (cls) => `<div class="beam ${cls} rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
+    <div class="flex items-start justify-between mb-1"><div><h2 class="font-display font-bold">Faturação — últimos 6 meses</h2><p class="text-xs text-slate-500 dark:text-slate-400">Por mês · vencimento · ${esc(SERVICO_LABEL[F.servico])}${F.prof!=="todos"?" · <span class='text-amber-600 dark:text-amber-400'>por unidade (não por profissional)</span>":""}</p></div>
+      <div class="text-right"><div class="num font-display text-xl font-extrabold">${eur(fatAncora.total)}</div><div class="text-xs text-slate-400">em ${esc(anchorLabel)}</div></div></div>
+    <div id="fatChart" class="mt-3"></div>
+    <div class="flex items-center gap-4 mt-2 text-xs text-slate-500 dark:text-slate-400"><span class="flex items-center gap-1.5"><span class="h-2 w-4 rounded-full bg-blue-600"></span>Faturado</span><span class="flex items-center gap-1.5"><span class="h-2 w-4 rounded-full bg-emerald-500"></span>Recebido</span></div></div>`;
+  const cardDonut = () => `<div class="beam rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm flex flex-col">
+    <h2 class="font-display font-bold mb-1">Sessões: dupla × individual</h2>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">${esc(rotuloEscopo())} · % das horas</p>
+    <div class="flex-1 grid place-content-center"><div id="donut"></div></div>
+    <div id="donutLegend" class="space-y-2 mt-4"></div></div>`;
+  const cardSemana = (cls) => `<div class="beam ${cls} rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
+    <div class="mb-4"><h2 class="font-display font-bold">Atendimentos por ${sc.tipo==="semana"?"semana":"mês"}</h2><p class="text-xs text-slate-500 dark:text-slate-400">${esc(rotuloEscopo())}</p></div>
+    <div id="atendChart"></div></div>`;
+  const cardProf = () => `<div class="beam rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
+    <h2 class="font-display font-bold mb-1">Por profissional</h2><p class="text-xs text-slate-500 dark:text-slate-400 mb-4">${esc(rotuloEscopo())}</p>
+    <div class="space-y-3.5" id="pros"></div></div>`;
+  const cardSituacao = () => `<div class="flex items-center gap-2 mb-3"><i data-lucide="clock" class="h-4 w-4 text-slate-400"></i><h2 class="font-display font-bold">Situação atual (hoje)</h2>
+      <span class="text-xs text-slate-400">${int(at.ativos)} ativos · ${int(at.sem_marcacao_total)} sem marcação · ${eur(pag.valor)} em atraso — todas as unidades</span></div>
     <section class="beam rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm mb-8">
       <div class="flex items-center gap-1 p-2 border-b border-slate-100 dark:border-slate-800">
         <button onclick="setTab('atrasados')" class="sh rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${UI.tab==='atrasados'?"bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400":"text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"}">Pagamentos atrasados <span class="num">· ${int(atrL.length)} · ${eur(atrSum)}</span></button>
         <button onclick="setTab('sem')" class="sh rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${UI.tab==='sem'?"bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400":"text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"}">Sem marcação <span class="num">· ${int(semL.length)}</span></button>
         <button onclick="toggleAberto()" class="sh ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"><i data-lucide="${UI.aberto?'chevron-up':'chevron-down'}" class="h-4 w-4"></i>${UI.aberto?"Recolher":"Expandir lista"}</button>
       </div>
-      ${UI.aberto?`<div class="p-4"><div class="overflow-x-auto"><table class="w-full text-sm" id="tbl"></table></div></div>`
-        :`<div class="p-4 text-sm text-slate-400 dark:text-slate-500">Toque em “Expandir lista” para ver a relação de ${UI.tab==='atrasados'?'pagamentos atrasados':'pacientes sem marcação'}.</div>`}
-    </section>
+      ${UI.aberto?`<div class="p-4"><div class="overflow-x-auto"><table class="w-full text-sm" id="tbl"></table></div></div>`:`<div class="p-4 text-sm text-slate-400 dark:text-slate-500">Toque em “Expandir lista” para ver a relação de ${UI.tab==='atrasados'?'pagamentos atrasados':'pacientes sem marcação'}.</div>`}
+    </section>`;
 
-    <p class="text-center text-xs text-slate-400 dark:text-slate-600 mt-2">Dados do seufisio (desde jan/2024) · atualização automática diária · "Recalcular ao vivo" força a busca imediata</p>
+  // ---- conteudo por view ----
+  let conteudo = "";
+  if(V==="financeiro"){
+    conteudo = `<section class="grid grid-cols-2 gap-4 mb-6">${kFat}${kAtr}</section>
+      <section class="mb-6">${cardFat("")}</section>
+      ${cardSituacao()}`;
+  } else if(V==="atendimentos"){
+    conteudo = `<section class="grid grid-cols-3 gap-4 mb-6">${kAt}${kInd}${kDup}</section>
+      <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">${cardSemana("lg:col-span-2")}${cardDonut()}</section>
+      <section class="mb-8">${cardProf()}</section>`;
+  } else if(V==="pacientes"){
+    conteudo = `<section class="grid grid-cols-2 gap-4 mb-6">${kAtivos}${kSem}</section>
+      ${cardSituacao()}`;
+  } else {
+    conteudo = `<section class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">${kFat}${kAt}${kInd}${kDup}</section>
+      <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">${cardFat("lg:col-span-2")}${cardDonut()}</section>
+      <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">${cardSemana("lg:col-span-2")}${cardProf()}</section>
+      ${cardSituacao()}`;
+  }
+
+  app.innerHTML = `
+  <div class="flex min-h-screen">
+    ${UI.nav?`<div onclick="toggleNav()" class="fixed inset-0 bg-black/40 z-30 lg:hidden"></div>`:""}
+    ${sidebarHTML(V)}
+    <main class="flex-1 min-w-0">
+      <div class="mx-auto max-w-[1200px] p-4 lg:p-8">
+        <header class="flex items-center justify-between gap-4 mb-5">
+          <div class="flex items-center gap-3">
+            <button onclick="toggleNav()" class="lg:hidden grid size-10 shrink-0 place-content-center rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"><i data-lucide="menu" class="h-5 w-5"></i></button>
+            <div><h1 class="font-display text-xl lg:text-2xl font-extrabold">${esc(VIEW_TITULO[V]||"Painel")}</h1><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Escoliose Portugal · atualizado ${esc(PAYLOAD.gerado_em||"")}</p></div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="recalcular()" class="sh inline-flex items-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 text-sm font-semibold transition-colors"><i data-lucide="refresh-cw" class="h-4 w-4"></i> <span class="hidden sm:inline">Recalcular ao vivo</span></button>
+            <button onclick="toggleTheme()" class="sh grid size-10 place-content-center rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"><i data-lucide="moon" class="h-[18px] w-[18px] dark:hidden"></i><i data-lucide="sun" class="h-[18px] w-[18px] hidden dark:block"></i></button>
+          </div>
+        </header>
+
+        <div class="flex flex-wrap items-center gap-2 mb-2">
+          <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1">${uniBtn("todas","Ambas")}${uniBtn("Coimbra","Coimbra")}${uniBtn("Lisboa","Lisboa")}</div>
+          <select class="${selCls}" onchange="onProf(this.value)">${optProf}</select>
+          <select class="${selCls}" onchange="onServ(this.value)" title="Filtra a faturação por tipo de serviço">${optServ}</select>
+          <span class="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-1 hidden sm:block"></span>
+          <select class="${selCls}" onchange="onAno(this.value)">${optAno}</select>
+          <select class="${selCls} ${F.ano==="tudo"?"opacity-50 pointer-events-none":""}" onchange="onMes(this.value)">${optMes}</select>
+          <select class="${selCls} ${(F.ano==="tudo"||F.mes==="todos")?"opacity-50 pointer-events-none":""}" onchange="onSemana(this.value)">${optSem}</select>
+        </div>
+        <p class="text-sm text-slate-400 dark:text-slate-500 mb-5">${esc(rotuloRecorte())} · <span class="font-semibold text-slate-600 dark:text-slate-300">${esc(rotuloEscopo())}</span>${F.servico!=="todos"?` · faturação: <span class="font-semibold text-slate-600 dark:text-slate-300">${esc(SERVICO_LABEL[F.servico])}</span>`:""}</p>
+
+        ${conteudo}
+
+        <p class="text-center text-xs text-slate-400 dark:text-slate-600 mt-2">Dados do seufisio (desde jan/2024) · atualização automática diária · "Recalcular ao vivo" força a busca imediata</p>
+      </div>
+    </main>
   </div>`;
 
   const serieFat = meses6.map(mk => { const b=fatMap[mk]; const s=b?aggFat([b]):{total:0,pago:0}; return { label: mesLabelP(mk), total:s.total, pago:s.pago }; });
   const serieAt = sc.items.map(b => { const s=aggAt([b]); return { label: b.ini?ddmm(b.ini):mesLabelP(b.periodo), n:s.atend }; });
-  chartFat(serieFat); donutDI(a.atend_ind, a.atend_dup); chartBars(serieAt, "atendChart"); barsProf(a.prof);
+  chartFat(serieFat); donutDI(a.ind, a.dup); chartBars(serieAt, "atendChart"); barsProf(a.prof);
   if(UI.aberto) tabela(UI.tab==='atrasados'?atrL:semL, UI.tab);
   icons();
 }
