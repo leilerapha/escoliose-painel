@@ -23,6 +23,9 @@
 <style>
   :root { color-scheme: light dark; }
   body { margin:0; font-family:'Inter',system-ui,sans-serif; }
+  /* espaco extra para a status bar do iPhone (notch/relogio/wifi) no ecra principal — aditivo (0 no desktop) */
+  main.safe-top { padding-top: env(safe-area-inset-top, 0px); }
+  nav.safe-top-nav { padding-top: calc(0.75rem + env(safe-area-inset-top, 0px)); }
   .num { font-variant-numeric: tabular-nums; }
   .spin { width:18px;height:18px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:sp .7s linear infinite }
   @keyframes sp { to { transform: rotate(360deg) } }
@@ -224,7 +227,7 @@ function semMarcFiltrados(){
 // ---------- sidebar ----------
 function sidebarHTML(V){
   const item = (it) => { const on=V===it.id; return `<button onclick="setView('${it.id}')" class="sh flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${on?"bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300":"text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"}"><i data-lucide="${it.icon}" class="h-[18px] w-[18px] shrink-0"></i><span>${it.label}</span></button>`; };
-  return `<nav class="fixed lg:sticky top-0 z-40 h-screen w-60 shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 flex flex-col transition-transform duration-300 ${UI.nav?"translate-x-0":"-translate-x-full"} lg:translate-x-0">
+  return `<nav class="safe-top-nav fixed lg:sticky top-0 z-40 h-screen w-60 shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 flex flex-col transition-transform duration-300 ${UI.nav?"translate-x-0":"-translate-x-full"} lg:translate-x-0">
     <div class="flex items-center gap-3 px-2 py-3 mb-3 border-b border-slate-200 dark:border-slate-800">
       <span class="grid size-9 shrink-0 place-content-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white"><i data-lucide="activity" class="h-5 w-5"></i></span>
       <div class="min-w-0"><div class="font-display font-bold text-sm truncate">Escoliose Portugal</div><div class="text-xs text-slate-500">Painel de gestão</div></div>
@@ -388,7 +391,7 @@ function render(){
   <div class="flex min-h-screen">
     ${UI.nav?`<div onclick="toggleNav()" class="fixed inset-0 bg-black/40 z-30 lg:hidden"></div>`:""}
     ${sidebarHTML(V)}
-    <main class="flex-1 min-w-0">
+    <main class="flex-1 min-w-0 safe-top">
       <div class="mx-auto max-w-[1200px] p-4 lg:p-8">
         <header class="flex items-center justify-between gap-4 mb-5">
           <div class="flex items-center gap-3">
