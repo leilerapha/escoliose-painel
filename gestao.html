@@ -258,8 +258,8 @@ function render(){
   const pctMetaReal = metaSel>0 ? Math.round(fatMetaReal/metaSel*100) : null;
   const pctMetaPrev = metaSel>0 ? Math.round(fatMetaMes/metaSel*100) : null;
   const pctMes = (()=>{ const hm=(PAYLOAD.hoje||"").slice(0,7); if(anchor<hm) return 100; if(anchor>hm) return 0; const [y,m,d]=(PAYLOAD.hoje||"2000-01-01").split("-").map(Number); const dim=new Date(Date.UTC(y,m,0)).getUTCDate(); return Math.round(d/dim*100); })();
-  // ticket medio de escoliose (faturacao escoliose / atendimentos) nos ultimos 6 meses, unidade(s) selecionada(s)
-  const ticketEsc = (()=>{ let fatE=0, n=0; const us=selectedUnits(); for(const mk of meses6){ const b=fatMap[mk]; if(!b) continue; for(const u of us){ const fu=b.fat[u]; if(fu){ for(const g of ["avaliacao","consulta","metodo"]) if(fu[g]) fatE+=fu[g].total; } const pa=b.atend||{}; for(const prof in pa){ const s=pa[prof][u]; if(s) n+=s.atend; } } } return n>0 ? fatE/n : 0; })();
+  // valor medio por atendimento de escoliose (fixo, definido pelo Raphael)
+  const ticketEsc = 60;
   const gapMeta = metaSel>0 ? Math.max(0, metaSel - fatMetaMes) : 0;          // quanto falta a previsao para a meta
   const faltamAtend = (gapMeta>0 && ticketEsc>0) ? Math.ceil(gapMeta/ticketEsc) : 0;
   const totalSess = a.ind + a.dup;                 // sessoes (horarios) = individuais + dupla
@@ -338,7 +338,7 @@ function render(){
       <span class="text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><span class="inline-block w-[2px] h-3 bg-slate-500 dark:bg-slate-300"></span>Mês decorrido: <span class="font-semibold text-slate-700 dark:text-slate-200">${pctMes}%</span>${(pctMetaReal!=null&&pctMes>0&&pctMes<100)?(pctMetaReal>=pctMes?` · <span class="text-emerald-600 dark:text-emerald-400 font-medium">no ritmo</span>`:` · <span class="text-amber-600 dark:text-amber-400 font-medium">abaixo do ritmo</span>`):""}</span>
       <span>${metaSel<=0?`<span class="text-slate-400">Defina a meta de ${esc(anchorLabel)} abaixo.</span>`:(pctMetaReal>=100?`<span class="text-emerald-600 dark:text-emerald-400">Meta já atingida 🎉</span>`:`<span class="text-slate-500 dark:text-slate-400">Faltam ${eur(Math.max(0,metaSel-fatMetaReal))} (real)</span>`)}</span>
     </div>
-    ${metaSel>0?`<div class="mt-3 rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50/60 dark:bg-blue-500/10 px-3 py-2.5 text-sm">${gapMeta<=0?`<span class="text-emerald-700 dark:text-emerald-400 font-medium">✓ A previsão já atinge a meta de ${esc(anchorLabel)}.</span>`:(ticketEsc>0?`🎯 Para bater a meta, faltam agendar <span class="num font-bold text-blue-700 dark:text-blue-300">~${int(faltamAtend)} atendimento${faltamAtend===1?"":"s"} de escoliose</span> <span class="text-slate-500 dark:text-slate-400">(faltam ${eur(gapMeta)} na previsão · ≈ ${eur(Math.round(ticketEsc))}/atendimento)</span>.`:`Faltam ${eur(gapMeta)} para a meta.`)}</div>`:""}
+    ${metaSel>0?`<div class="mt-3 rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50/60 dark:bg-blue-500/10 px-3 py-2.5 text-sm">${gapMeta<=0?`<span class="text-emerald-700 dark:text-emerald-400 font-medium">✓ A previsão já atinge a meta de ${esc(anchorLabel)}.</span>`:(ticketEsc>0?`🎯 Para bater a meta, faltam agendar <span class="num font-bold text-blue-700 dark:text-blue-300">~${int(faltamAtend)} atendimento${faltamAtend===1?"":"s"} de escoliose</span> <span class="text-slate-500 dark:text-slate-400">(faltam ${eur(gapMeta)} na previsão · a ${eur(ticketEsc)}/atendimento)</span>.`:`Faltam ${eur(gapMeta)} para a meta.`)}</div>`:""}
     <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
       <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Meta de ${esc(anchorLabel)} por unidade (€)</div>
       <div class="flex flex-wrap items-end gap-3">
