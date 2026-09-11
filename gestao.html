@@ -80,12 +80,13 @@ let PAYLOAD = null;
 const F = { ano:"tudo", mes:"todos", semana:"todas", unidade:"todas", prof:"todos", servico:"todos" };
 const UI = { tab:"atrasados", aberto:false, view:"geral", nav:false };
 let CTX = { anchor:null };
-const VIEW_TITULO = { geral:"Visão geral", financeiro:"Financeiro", atendimentos:"Atendimentos", pacientes:"Pacientes" };
+const VIEW_TITULO = { geral:"Visão geral", financeiro:"Financeiro", atendimentos:"Atendimentos", pacientes:"Pacientes", turmas:"Turmas de Pilates" };
 const NAV_ITENS = [
   { id:"geral", label:"Visão geral", icon:"layout-dashboard" },
   { id:"financeiro", label:"Financeiro", icon:"wallet" },
   { id:"atendimentos", label:"Atendimentos", icon:"stethoscope" },
   { id:"pacientes", label:"Pacientes", icon:"users" },
+  { id:"turmas", label:"Turmas", icon:"dumbbell" },
 ];
 function setView(v){ UI.view=v; UI.nav=false; if(v==="financeiro") UI.tab="atrasados"; if(v==="pacientes") UI.tab="sem"; render(); }
 function toggleNav(){ UI.nav=!UI.nav; render(); }
@@ -374,6 +375,8 @@ function render(){
   } else if(V==="pacientes"){
     conteudo = `<section class="grid grid-cols-2 gap-4 mb-6">${kAtivos}${kSem}</section>
       ${cardSituacao()}`;
+  } else if(V==="turmas"){
+    conteudo = cardTurmas();
   } else {
     conteudo = `<section class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">${kFat}${kAt}${kInd}${kDup}</section>
       <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">${cardFat("lg:col-span-2")}${cardDonut()}</section>
@@ -484,6 +487,64 @@ function barsProf(profMap){
   if(!arr.length){ el.innerHTML='<div class="text-sm text-slate-400 py-6 text-center">Sem dados no período.</div>'; return; }
   const max=Math.max(...arr.map(p=>p.n),1);
   el.innerHTML=arr.map(p=>`<div><div class="flex items-baseline justify-between mb-1"><span class="text-sm font-medium">${esc(p.nome)}</span><span class="num text-sm font-semibold">${int(p.n)}</span></div><div class="h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div class="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600" style="width:${(p.n/max*100).toFixed(0)}%"></div></div></div>`).join("");
+}
+// ---------- turmas de pilates ----------
+function turmasData(){ return (PAYLOAD && PAYLOAD.turmas) || {lotacao:5,lista:[],resumo:{}}; }
+const EST_TURMA = {
+  critica: {label:"Crítica",     cls:"bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400"},
+  encher:  {label:"A encher",    cls:"bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400"},
+  cheia:   {label:"Cheia",       cls:"bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"},
+  excecao: {label:"Lotada (+)",  cls:"bg-violet-50 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400"},
+};
+function turmaCard(t, lot){
+  const e = EST_TURMA[t.estado] || EST_TURMA.encher;
+  const npips = Math.max(lot, t.n_alunos||0);
+  let pips=""; for(let i=0;i<npips;i++){ const on=i<(t.n_alunos||0); pips += `<span class="h-2.5 flex-1 rounded-full ${on?(t.estado==='excecao'?'bg-violet-500':'bg-blue-600'):'bg-slate-200 dark:bg-slate-700'}"></span>`; }
+  const vagas = t.vagas||0;
+  const vagasTxt = vagas>0
+    ? `<span class="num font-display text-2xl font-extrabold text-blue-600 dark:text-blue-400 leading-none">${vagas}</span><div class="text-xs text-slate-400">vaga${vagas===1?"":"s"}</div>`
+    : (t.estado==='excecao'
+        ? `<span class="text-sm font-semibold text-violet-600 dark:text-violet-400">Lotada</span><div class="text-xs text-slate-400">+${(t.n_alunos||0)-lot} acima</div>`
+        : `<span class="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Cheia</span><div class="text-xs text-slate-400">sem vagas</div>`);
+  return `<div class="beam rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm flex flex-col gap-3">
+    <div class="flex items-start justify-between gap-2">
+      <div class="min-w-0"><div class="font-display font-bold">${esc((t.dias||[]).join(" · "))} · ${esc(t.hora||"")}</div>
+        <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">${esc(t.freq||"")}/sem · ${esc((t.profissionais||[]).join(", ")||"—")}</div></div>
+      <span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${e.cls}">${e.label}</span>
+    </div>
+    <div class="flex items-end justify-between gap-3">
+      <div><div class="num font-display text-2xl font-extrabold leading-none">${int(t.n_alunos||0)}<span class="text-base text-slate-400 font-bold">/${lot}</span></div><div class="text-xs text-slate-400 mt-0.5">aluno${(t.n_alunos||0)===1?"":"s"}</div></div>
+      <div class="text-right">${vagasTxt}</div>
+    </div>
+    <div class="flex items-center gap-1">${pips}</div>
+    ${(t.reposicoes||0)>0?`<div class="text-[11px] text-slate-400 dark:text-slate-500">${int(t.reposicoes)} reposiç${t.reposicoes===1?"ão":"ões"} (R) no período · não contam</div>`:""}
+  </div>`;
+}
+function cardTurmas(){
+  const T = turmasData(); const lot = T.lotacao||5;
+  if(F.unidade==="Lisboa"){
+    return `<div class="beam rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm text-sm text-slate-500 dark:text-slate-400">As turmas de <span class="font-semibold text-slate-700 dark:text-slate-200">Pilates Clínico</span> existem apenas na unidade de <span class="font-semibold text-slate-700 dark:text-slate-200">Coimbra</span>. Escolha <span class="font-semibold">Coimbra</span> ou <span class="font-semibold">Ambas</span> no filtro de unidade para as ver.</div>`;
+  }
+  let lista = (T.lista||[]).slice();
+  if(F.prof!=="todos") lista = lista.filter(t=>(t.profissionais||[]).includes(F.prof));
+  const total=lista.length;
+  const vagas=lista.reduce((s,t)=>s+(t.vagas||0),0);
+  const criticas=lista.filter(t=>t.estado==="critica").length;
+  const comVaga=lista.filter(t=>(t.vagas||0)>0).length;
+  const cheias=lista.filter(t=>(t.vagas||0)===0).length;
+  const kVagas = kpi("layout-grid","blue","Vagas disponíveis",int(vagas),`${int(comVaga)} turma${comVaga===1?"":"s"} por encher`);
+  const kTurmas = kpi("dumbbell","emerald","Turmas",int(total),`${int(cheias)} cheia${cheias===1?"":"s"} · ${int(total-cheias)} com vaga`);
+  const kCrit = kpi("alert-triangle","rose","Turmas críticas",int(criticas),"menos de 4 alunos");
+  const grid = lista.length
+    ? `<section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">${lista.map(t=>turmaCard(t,lot)).join("")}</section>`
+    : `<div class="beam rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm text-sm text-slate-400">Sem turmas de Pilates Clínico neste recorte.</div>`;
+  return `<section class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">${kVagas}${kTurmas}${kCrit}</section>
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <h2 class="font-display font-bold">Turmas de Pilates Clínico — Coimbra</h2>
+      <span class="text-xs text-slate-400 dark:text-slate-500">turma cheia = ${lot} alunos · mín. 4 · ordenadas pelas mais vazias · reposições (R) não contam</span>
+    </div>
+    ${grid}
+    <p class="text-center text-xs text-slate-400 dark:text-slate-600 mt-5">Alunos inscritos = pessoas com marcação futura em cada horário recorrente (próximas semanas), sem contar reposições.</p>`;
 }
 function tabela(lista, tipo){
   const el=document.getElementById("tbl"); if(!el) return;
