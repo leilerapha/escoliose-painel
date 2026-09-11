@@ -508,20 +508,22 @@ function turmaCard(t, lot){
         : `<span class="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Cheia</span><div class="text-xs text-slate-400">sem vagas</div>`);
   return `<div class="beam rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm flex flex-col gap-3">
     <div class="flex items-start justify-between gap-2">
-      <div class="min-w-0"><div class="font-display font-bold">${esc((t.dias||[]).join(" · "))} · ${esc(t.hora||"")}</div>
-        <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">${esc(t.freq||"")}/sem · ${esc((t.profissionais||[]).join(", ")||"—")}</div></div>
+      <div class="min-w-0"><div class="font-display font-bold">${esc(t.dia||"")} · ${esc(t.hora||"")}</div>
+        <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">${esc((t.profissionais||[]).join(", ")||"—")}</div></div>
       <span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${e.cls}">${e.label}</span>
     </div>
     <div class="flex items-end justify-between gap-3">
-      <div><div class="num font-display text-2xl font-extrabold leading-none">${int(t.n_alunos||0)}<span class="text-base text-slate-400 font-bold">/${lot}</span></div><div class="text-xs text-slate-400 mt-0.5">aluno${(t.n_alunos||0)===1?"":"s"}</div></div>
+      <div><div class="num font-display text-2xl font-extrabold leading-none">${int(t.n_alunos||0)}<span class="text-base text-slate-400 font-bold">/${lot}</span></div><div class="text-xs text-slate-400 mt-0.5">pessoa${(t.n_alunos||0)===1?"":"s"}</div></div>
       <div class="text-right">${vagasTxt}</div>
     </div>
     <div class="flex items-center gap-1">${pips}</div>
-    ${(t.reposicoes||0)>0?`<div class="text-[11px] text-slate-400 dark:text-slate-500">${int(t.reposicoes)} reposiç${t.reposicoes===1?"ão":"ões"} (R) no período · não contam</div>`:""}
+    ${(t.reposicoes||0)>0?`<div class="text-[11px] text-slate-400 dark:text-slate-500">${int(t.reposicoes)} reposiç${t.reposicoes===1?"ão":"ões"} (R) · não contam</div>`:""}
   </div>`;
 }
 function cardTurmas(){
   const T = turmasData(); const lot = T.lotacao||5;
+  const sem = T.semana||{};
+  const semLabel = (sem.inicio&&sem.fim) ? `${ddmm(sem.inicio)} a ${ddmm(sem.fim)}` : "";
   if(F.unidade==="Lisboa"){
     return `<div class="beam rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm text-sm text-slate-500 dark:text-slate-400">As turmas de <span class="font-semibold text-slate-700 dark:text-slate-200">Pilates Clínico</span> existem apenas na unidade de <span class="font-semibold text-slate-700 dark:text-slate-200">Coimbra</span>. Escolha <span class="font-semibold">Coimbra</span> ou <span class="font-semibold">Ambas</span> no filtro de unidade para as ver.</div>`;
   }
@@ -533,18 +535,18 @@ function cardTurmas(){
   const comVaga=lista.filter(t=>(t.vagas||0)>0).length;
   const cheias=lista.filter(t=>(t.vagas||0)===0).length;
   const kVagas = kpi("layout-grid","blue","Vagas disponíveis",int(vagas),`${int(comVaga)} turma${comVaga===1?"":"s"} por encher`);
-  const kTurmas = kpi("dumbbell","emerald","Turmas",int(total),`${int(cheias)} cheia${cheias===1?"":"s"} · ${int(total-cheias)} com vaga`);
-  const kCrit = kpi("alert-triangle","rose","Turmas críticas",int(criticas),"menos de 4 alunos");
+  const kTurmas = kpi("dumbbell","emerald","Turmas na semana",int(total),`${int(cheias)} cheia${cheias===1?"":"s"} · ${int(total-cheias)} com vaga`);
+  const kCrit = kpi("alert-triangle","rose","Turmas críticas",int(criticas),"menos de 4 pessoas");
   const grid = lista.length
     ? `<section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">${lista.map(t=>turmaCard(t,lot)).join("")}</section>`
     : `<div class="beam rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm text-sm text-slate-400">Sem turmas de Pilates Clínico neste recorte.</div>`;
   return `<section class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">${kVagas}${kTurmas}${kCrit}</section>
     <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-      <h2 class="font-display font-bold">Turmas de Pilates Clínico — Coimbra</h2>
-      <span class="text-xs text-slate-400 dark:text-slate-500">turma cheia = ${lot} alunos · mín. 4 · ordenadas pelas mais vazias · reposições (R) não contam</span>
+      <div><h2 class="font-display font-bold">Turmas de Pilates Clínico — Coimbra</h2>${semLabel?`<p class="text-xs text-slate-500 dark:text-slate-400">Semana de <span class="font-semibold text-slate-700 dark:text-slate-200">${esc(semLabel)}</span> (segunda a sábado)</p>`:""}</div>
+      <span class="text-xs text-slate-400 dark:text-slate-500">turma cheia = ${lot} · mín. 4 · ordenadas pelas mais vazias · reposições (R) não contam</span>
     </div>
     ${grid}
-    <p class="text-center text-xs text-slate-400 dark:text-slate-600 mt-5">Alunos inscritos = pessoas com marcação futura em cada horário recorrente (próximas semanas), sem contar reposições.</p>`;
+    <p class="text-center text-xs text-slate-400 dark:text-slate-600 mt-5">Cada turma = um horário da semana. Conta as pessoas marcadas nesse horário (sem contar reposições). Vagas = ${lot} − pessoas.</p>`;
 }
 function tabela(lista, tipo){
   const el=document.getElementById("tbl"); if(!el) return;
