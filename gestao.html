@@ -144,7 +144,7 @@ function semanasDisp(anoMes){ return (PAYLOAD.semanal||[]).filter(s=>s.mes===ano
 function onAno(v){ F.ano=v; F.mes="todos"; F.semana="todas"; render(); }
 function onMes(v){ F.mes=v; F.semana="todas"; render(); }
 function onSemana(v){ F.semana=v; render(); }
-function onUni(v){ F.unidade=v; render(); }
+function onUni(v){ F.unidade=v; if(F.prof!=="todos" && v!=="todas"){ const p=profsList().find(x=>x.nome===F.prof); if(!p || !(p.unidades||[]).includes(v)) F.prof="todos"; } render(); }
 function onProf(v){ F.prof=v; render(); }
 function onServ(v){ F.servico=v; render(); }
 function setTab(t){ UI.tab=t; UI.aberto=true; render(); }
@@ -183,7 +183,8 @@ function render(){
   const optAno = `<option value="tudo"${F.ano==="tudo"?" selected":""}>Todos os anos</option>`+anos.map(y=>`<option value="${y}"${F.ano===y?" selected":""}>${y}</option>`).join("");
   const optMes = `<option value="todos"${F.mes==="todos"?" selected":""}>Ano todo</option>`+meses.map(m=>`<option value="${m}"${F.mes===m?" selected":""}>${MESES[+m-1]}</option>`).join("");
   const optSem = `<option value="todas"${F.semana==="todas"?" selected":""}>Mês todo</option>`+semanas.map(s=>`<option value="${s}"${F.semana===s?" selected":""}>Semana de ${ddmm(s)}</option>`).join("");
-  const optProf = `<option value="todos"${F.prof==="todos"?" selected":""}>Todos os profissionais</option>`+profsList().map(p=>`<option value="${esc(p.nome)}"${F.prof===p.nome?" selected":""}>${esc(p.nome)} · ${esc((p.unidades||[]).join(", "))}</option>`).join("");
+  const profsVis = F.unidade==="todas" ? profsList() : profsList().filter(p=>(p.unidades||[]).includes(F.unidade));
+  const optProf = `<option value="todos"${F.prof==="todos"?" selected":""}>Todos os profissionais</option>`+profsVis.map(p=>`<option value="${esc(p.nome)}"${F.prof===p.nome?" selected":""}>${esc(p.nome)} · ${esc((p.unidades||[]).join(", "))}</option>`).join("");
   const optServ = Object.keys(SERVICO_LABEL).map(k=>`<option value="${k}"${F.servico===k?" selected":""}>${esc(SERVICO_LABEL[k])}</option>`).join("");
   const selCls = "rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium";
   const uniBtn = (v,label) => { const on=F.unidade===v; return `<button onclick="onUni('${v}')" class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${on?"bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900":"text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"}">${label}</button>`; };
