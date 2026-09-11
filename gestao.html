@@ -48,7 +48,7 @@ const ddmm = s => { const p=String(s).slice(0,10).split("-"); return p[2]+"/"+p[
 function toggleTheme(){ const d=!document.documentElement.classList.contains("dark"); document.documentElement.classList.toggle("dark",d); try{localStorage.setItem("sf-theme",d?"dark":"light");}catch(e){} render(); }
 
 let PAYLOAD = null;
-const F = { ano:"tudo", mes:"todos", semana:"todas" };
+const F = { ano:"tudo", mes:"todos", semana:"todas", unidade:"todas" };
 
 // ---------- gate + carregamento ----------
 function pedirCodigo(msg){
@@ -64,7 +64,7 @@ function pedirCodigo(msg){
   document.getElementById("ok").onclick = go;
   document.getElementById("cod").addEventListener("keydown",e=>{ if(e.key==="Enter") go(); });
 }
-function tela(msg){ app.innerHTML = `<div class="min-h-screen grid place-content-center text-slate-500"><div class="flex items-center gap-3"><span class="spin"></span><span>${esc(msg)}</span></div></div>`; }
+function tela(msg){ app.innerHTML = `<div class="min-h-screen grid place-content-center text-slate-500 p-6"><div class="flex items-center gap-3 text-center"><span class="spin"></span><span>${esc(msg)}</span></div></div>`; }
 function telaErro(msg){ app.innerHTML = `<div class="min-h-screen grid place-content-center p-6"><div class="text-center"><div class="text-rose-600 dark:text-rose-400 mb-3">${esc(msg)}</div><button onclick="carregar()" class="rounded-lg border border-slate-300 dark:border-slate-700 px-4 py-2 text-sm font-medium">Tentar de novo</button></div></div>`; }
 
 async function carregar(){
@@ -78,13 +78,12 @@ async function carregar(){
   if(d.erro) return telaErro(d.erro);
   if(d.vazio) return telaErro("O painel ainda não foi calculado. Toque em recalcular ou tente daqui a pouco.");
   PAYLOAD = d;
-  // normaliza filtro se ficou inválido
   render();
 }
 
 async function recalcular(){
-  if(!confirm("Recalcular agora a partir do seufisio? Isto vai buscar tudo ao vivo e demora cerca de 2 minutos.")) return;
-  tela("A recalcular ao vivo a partir do seufisio… (~2 min, não feche)");
+  if(!confirm("Recalcular agora a partir do seufisio? Isto vai buscar tudo ao vivo (desde 2024) e pode demorar 2–4 minutos.")) return;
+  tela("A recalcular ao vivo a partir do seufisio… (pode demorar alguns minutos, não feche)");
   try {
     const r = await fetch(FUNC+"?acao=rebuild&k="+encodeURIComponent(getCode()));
     const d = await r.json();
@@ -93,41 +92,51 @@ async function recalcular(){
   await carregar();
 }
 
-// ---------- filtros ----------
-function anosDisp(){ return [...new Set((PAYLOAD.mensal||[]).map(m=>m.periodo.slice(0,4)))].sort(); }
-function mesesDisp(ano){ return (PAYLOAD.mensal||[]).filter(m=>m.periodo.startsWith(ano)).map(m=>m.periodo.slice(5,7)); }
-function semanasDisp(anoMes){ return (PAYLOAD.semanal||[]).filter(s=>s.mes===anoMes).map(s=>s.ini); }
-
+// ---------- unidades / agregação ----------
+function unidadesTodas(){ return (PAYLOAD && PAYLOAD.unidades) || ["Coimbra","Lisboa"]; }
+function unitsSel(){ return F.unidade==="todas" ? unidadesTodas() : [F.unidade]; }
+function subOf(b){
+  const a={fat_total:0,fat_pago:0,atend:0,ind:0,dup:0,atend_ind:0,atend_dup:0,prof:{}};
+  for(const u of unitsSel()){ const s=b.u&&b.u[u]; if(!s) continue;
+    a.fat_total+=s.fat_total; a.fat_pago+=s.fat_pago; a.atend+=s.atend; a.ind+=s.ind; a.dup+=s.dup; a.atend_ind+=s.atend_ind; a.atend_dup+=s.atend_dup;
+    for(const [k,v] of Object.entries(s.prof||{})) a.prof[k]=(a.prof[k]||0)+v; }
+  return a;
+}
 function agg(buckets){
   const a={fat_total:0,fat_pago:0,atend:0,ind:0,dup:0,atend_ind:0,atend_dup:0,prof:{}};
-  for(const b of buckets){ a.fat_total+=b.fat_total; a.fat_pago+=b.fat_pago; a.atend+=b.atend; a.ind+=b.ind; a.dup+=b.dup; a.atend_ind+=b.atend_ind; a.atend_dup+=b.atend_dup;
-    for(const [k,v] of Object.entries(b.prof||{})) a.prof[k]=(a.prof[k]||0)+v; }
+  for(const b of buckets){ const s=subOf(b); a.fat_total+=s.fat_total; a.fat_pago+=s.fat_pago; a.atend+=s.atend; a.ind+=s.ind; a.dup+=s.dup; a.atend_ind+=s.atend_ind; a.atend_dup+=s.atend_dup;
+    for(const [k,v] of Object.entries(s.prof)) a.prof[k]=(a.prof[k]||0)+v; }
   return a;
 }
 function escopo(){
   const {ano,mes,semana}=F;
-  if(ano!=="tudo" && mes!=="todos" && semana!=="todas"){ const b=(PAYLOAD.semanal||[]).find(s=>s.ini===semana); const it=b?[b]:[]; return {buckets:it, tipo:"semana", items:it}; }
-  if(ano!=="tudo" && mes!=="todos"){ const am=ano+"-"+mes; const ws=(PAYLOAD.semanal||[]).filter(s=>s.mes===am); return {buckets:ws, tipo:"semana", items:ws}; }
-  if(ano!=="tudo"){ const ms=(PAYLOAD.mensal||[]).filter(m=>m.periodo.startsWith(ano)); return {buckets:ms, tipo:"mes", items:ms}; }
-  return {buckets:(PAYLOAD.mensal||[]), tipo:"mes", items:(PAYLOAD.mensal||[])};
+  if(ano!=="tudo" && mes!=="todos" && semana!=="todas"){ const b=(PAYLOAD.semanal||[]).find(s=>s.ini===semana); const it=b?[b]:[]; return {aggB:it, items:it, tipo:"semana"}; }
+  if(ano!=="tudo" && mes!=="todos"){ const am=ano+"-"+mes; const mb=(PAYLOAD.mensal||[]).filter(m=>m.periodo===am); const ws=(PAYLOAD.semanal||[]).filter(s=>s.mes===am); return {aggB:mb, items:ws, tipo:"semana"}; }
+  if(ano!=="tudo"){ const ms=(PAYLOAD.mensal||[]).filter(m=>m.periodo.startsWith(ano)); return {aggB:ms, items:ms, tipo:"mes"}; }
+  return {aggB:(PAYLOAD.mensal||[]), items:(PAYLOAD.mensal||[]), tipo:"mes"};
 }
 function rotuloEscopo(){
   const {ano,mes,semana}=F;
   if(ano!=="tudo" && mes!=="todos" && semana!=="todas") return "Semana de "+ddmm(semana);
   if(ano!=="tudo" && mes!=="todos") return MESES[+mes-1]+" de "+ano;
   if(ano!=="tudo") return "Ano de "+ano;
-  return "Todo o período (desde jan/2025)";
+  return "Todo o período (desde jan/2024)";
 }
+
+function anosDisp(){ return [...new Set((PAYLOAD.mensal||[]).map(m=>m.periodo.slice(0,4)))].sort(); }
+function mesesDisp(ano){ return (PAYLOAD.mensal||[]).filter(m=>m.periodo.startsWith(ano)).map(m=>m.periodo.slice(5,7)); }
+function semanasDisp(anoMes){ return (PAYLOAD.semanal||[]).filter(s=>s.mes===anoMes).map(s=>s.ini); }
 
 function onAno(v){ F.ano=v; F.mes="todos"; F.semana="todas"; render(); }
 function onMes(v){ F.mes=v; F.semana="todas"; render(); }
 function onSemana(v){ F.semana=v; render(); }
+function onUni(v){ F.unidade=v; render(); }
 
 // ---------- render ----------
 function render(){
   if(!PAYLOAD) return;
   const sc = escopo();
-  const a = agg(sc.buckets);
+  const a = agg(sc.aggB);
   const por_receber = a.fat_total - a.fat_pago;
   const totalSess = a.atend_ind + a.atend_dup;
   const at = PAYLOAD.atual || {};
@@ -136,18 +145,18 @@ function render(){
   const anos = anosDisp();
   const meses = F.ano!=="tudo" ? mesesDisp(F.ano) : [];
   const semanas = (F.ano!=="tudo" && F.mes!=="todos") ? semanasDisp(F.ano+"-"+F.mes) : [];
-
   const optAno = `<option value="tudo"${F.ano==="tudo"?" selected":""}>Todos os anos</option>`+anos.map(y=>`<option value="${y}"${F.ano===y?" selected":""}>${y}</option>`).join("");
   const optMes = `<option value="todos"${F.mes==="todos"?" selected":""}>Ano todo</option>`+meses.map(m=>`<option value="${m}"${F.mes===m?" selected":""}>${MESES[+m-1]}</option>`).join("");
   const optSem = `<option value="todas"${F.semana==="todas"?" selected":""}>Mês todo</option>`+semanas.map(s=>`<option value="${s}"${F.semana===s?" selected":""}>Semana de ${ddmm(s)}</option>`).join("");
   const selCls = "rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium";
+  const uniBtn = (v,label) => { const on=F.unidade===v; return `<button onclick="onUni('${v}')" class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${on?"bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900":"text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"}">${label}</button>`; };
 
   app.innerHTML = `
   <div class="mx-auto max-w-[1400px] p-5 lg:p-8">
     <header class="flex flex-wrap items-start justify-between gap-4 mb-5">
       <div>
         <h1 class="font-display text-2xl lg:text-3xl font-extrabold">Painel de Gestão</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Coimbra + Lisboa · atualizado ${esc(PAYLOAD.gerado_em||"")}</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Escoliose Portugal · atualizado ${esc(PAYLOAD.gerado_em||"")}</p>
       </div>
       <div class="flex items-center gap-2">
         <button onclick="recalcular()" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 text-sm font-semibold transition-colors"><i data-lucide="refresh-cw" class="h-4 w-4"></i> Recalcular ao vivo</button>
@@ -155,14 +164,16 @@ function render(){
       </div>
     </header>
 
-    <div class="flex flex-wrap items-center gap-2 mb-2">
+    <div class="flex flex-wrap items-center gap-2 mb-4">
+      <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1">${uniBtn("todas","Ambas")}${uniBtn("Coimbra","Coimbra")}${uniBtn("Lisboa","Lisboa")}</div>
+      <span class="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-1"></span>
       <select class="${selCls}" onchange="onAno(this.value)">${optAno}</select>
       <select class="${selCls} ${F.ano==="tudo"?"opacity-50 pointer-events-none":""}" onchange="onMes(this.value)">${optMes}</select>
       <select class="${selCls} ${(F.ano==="tudo"||F.mes==="todos")?"opacity-50 pointer-events-none":""}" onchange="onSemana(this.value)">${optSem}</select>
-      <span class="text-sm text-slate-400 dark:text-slate-500 ml-1">a ver: <span class="font-semibold text-slate-600 dark:text-slate-300">${esc(rotuloEscopo())}</span></span>
+      <span class="text-sm text-slate-400 dark:text-slate-500 ml-1">${esc(F.unidade==="todas"?"Ambas as unidades":F.unidade)} · <span class="font-semibold text-slate-600 dark:text-slate-300">${esc(rotuloEscopo())}</span></span>
     </div>
 
-    <section class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6 mt-4">
+    <section class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
       ${kpi("wallet","blue","Faturação",eur(a.fat_total),`recebido ${eur(a.fat_pago)} · a receber ${eur(por_receber)}`)}
       ${kpi("stethoscope","emerald","Atendimentos",int(a.atend),`${int(totalSess)} sessões de escoliose`)}
       ${kpi("user","sky","Individuais",int(a.atend_ind),"1 paciente no horário")}
@@ -171,7 +182,7 @@ function render(){
 
     <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
       <div class="lg:col-span-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
-        <div class="flex items-start justify-between mb-1"><div><h2 class="font-display font-bold">Faturação</h2><p class="text-xs text-slate-500 dark:text-slate-400">Por ${sc.tipo==="semana"?"semana":"mês"} · ${esc(rotuloEscopo())}</p></div>
+        <div class="flex items-start justify-between mb-1"><div><h2 class="font-display font-bold">Faturação</h2><p class="text-xs text-slate-500 dark:text-slate-400">Por ${sc.tipo==="semana"?"semana":"mês"} · vencimento · ${esc(rotuloEscopo())}</p></div>
           <div class="text-right"><div class="num font-display text-xl font-extrabold">${eur(a.fat_total)}</div><div class="text-xs text-slate-400">no período</div></div></div>
         <div id="fatChart" class="mt-3"></div>
         <div class="flex items-center gap-4 mt-2 text-xs text-slate-500 dark:text-slate-400">
@@ -198,7 +209,7 @@ function render(){
       </div>
     </section>
 
-    <div class="flex items-center gap-2 mb-3"><i data-lucide="clock" class="h-4 w-4 text-slate-400"></i><h2 class="font-display font-bold">Situação atual</h2><span class="text-xs text-slate-400">(não muda com o filtro)</span></div>
+    <div class="flex items-center gap-2 mb-3"><i data-lucide="clock" class="h-4 w-4 text-slate-400"></i><h2 class="font-display font-bold">Situação atual</h2><span class="text-xs text-slate-400">(todas as unidades · não muda com o filtro)</span></div>
     <section class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
       ${kpi("alert-triangle","rose","Pagamentos atrasados",eur(pag.valor),`${int(pag.contas)} contas · ${int(pag.criticas)} crítica(s) +30d`)}
       ${kpi("user-check","emerald","Pacientes ativos",int(at.ativos),"com marcação nos próximos 30 dias")}
@@ -215,11 +226,11 @@ function render(){
         </tr></thead><tbody id="semMarc"></tbody></table></div>
     </section>
 
-    <p class="text-center text-xs text-slate-400 dark:text-slate-600 mt-8">Dados do seufisio · atualização automática diária · "Recalcular ao vivo" força a busca imediata</p>
+    <p class="text-center text-xs text-slate-400 dark:text-slate-600 mt-8">Dados do seufisio (desde jan/2024) · atualização automática diária · "Recalcular ao vivo" força a busca imediata</p>
   </div>`;
 
-  const serieFat = sc.items.map(b => ({ label: b.ini?ddmm(b.ini):mesLabelP(b.periodo), total:b.fat_total, pago:b.fat_pago }));
-  const serieAt = sc.items.map(b => ({ label: b.ini?ddmm(b.ini):mesLabelP(b.periodo), n:b.atend }));
+  const serieFat = sc.items.map(b => { const s=subOf(b); return { label: b.ini?ddmm(b.ini):mesLabelP(b.periodo), total:s.fat_total, pago:s.fat_pago }; });
+  const serieAt = sc.items.map(b => { const s=subOf(b); return { label: b.ini?ddmm(b.ini):mesLabelP(b.periodo), n:s.atend }; });
   chartFat(serieFat);
   donutDI(a.atend_ind, a.atend_dup);
   chartBars(serieAt, "atendChart");
@@ -295,6 +306,7 @@ function barsProf(profMap){
 }
 function tabelaSemMarc(lista){
   const el=document.getElementById("semMarc"); if(!el) return;
+  if(F.unidade!=="todas") lista = lista.filter(p=>String(p.unidades||"").includes(F.unidade));
   const tag=s=>s==="Avaliado, nunca iniciou"?'<span class="rounded px-1.5 py-0.5 text-[11px] font-medium bg-violet-100 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400">nunca iniciou</span>':'<span class="rounded px-1.5 py-0.5 text-[11px] font-medium bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400">parou</span>';
   const tel=t=>{const d=String(t||"").replace(/[^\d+]/g,"");return d?`<a href="tel:${d}" class="text-blue-600 dark:text-blue-400 hover:underline">${esc(t)}</a>`:'<span class="text-slate-400">—</span>';};
   el.innerHTML=lista.length?lista.map(p=>`<tr class="border-b border-slate-50 dark:border-slate-800/60"><td class="py-2.5 pr-3 font-medium">${esc(p.cliente)}</td><td class="py-2.5 pr-3 text-slate-500 dark:text-slate-400">${esc(p.unidades)}</td><td class="py-2.5 pr-3">${tag(p.situacao)}</td><td class="py-2.5 pr-3 text-right num">${p.dias!=null?int(p.dias):""}</td><td class="py-2.5">${tel(p.telefone)}</td></tr>`).join(""):'<tr><td colspan="5" class="py-4 text-center text-slate-400">Nenhum.</td></tr>';
