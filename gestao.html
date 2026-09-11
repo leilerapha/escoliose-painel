@@ -82,6 +82,17 @@ async function carregar(){
   if(d.erro) return telaErro(d.erro);
   if(d.vazio) return telaErro("O painel ainda não foi calculado. Toque em recalcular ou tente daqui a pouco.");
   PAYLOAD = d;
+  if(!F._init){
+    F._init = true;
+    const hy=(d.hoje||"").slice(0,4), hm=(d.hoje||"").slice(5,7);
+    const anos=[...new Set((d.mensal||[]).map(m=>m.periodo.slice(0,4)))];
+    if(anos.includes(hy)){
+      F.ano=hy;
+      const meses=(d.mensal||[]).filter(m=>m.periodo.startsWith(hy)).map(m=>m.periodo.slice(5,7));
+      F.mes = meses.includes(hm) ? hm : "todos";
+    }
+    F.semana="todas";
+  }
   render();
 }
 
