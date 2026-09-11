@@ -529,6 +529,8 @@ function cardTurmas(){
   }
   let lista = (T.lista||[]).slice();
   if(F.prof!=="todos") lista = lista.filter(t=>(t.profissionais||[]).includes(F.prof));
+  const ORD_DIA = {Seg:1,Ter:2,Qua:3,Qui:4,Sex:5,"Sáb":6,Dom:7};
+  lista.sort((a,b)=> (ORD_DIA[a.dia]||9)-(ORD_DIA[b.dia]||9) || (a.hora<b.hora?-1:a.hora>b.hora?1:0));
   const total=lista.length;
   const vagas=lista.reduce((s,t)=>s+(t.vagas||0),0);
   const criticas=lista.filter(t=>t.estado==="critica").length;
@@ -543,7 +545,7 @@ function cardTurmas(){
   return `<section class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">${kVagas}${kTurmas}${kCrit}</section>
     <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
       <div><h2 class="font-display font-bold">Turmas de Pilates Clínico — Coimbra</h2>${semLabel?`<p class="text-xs text-slate-500 dark:text-slate-400">Semana de <span class="font-semibold text-slate-700 dark:text-slate-200">${esc(semLabel)}</span> (segunda a sábado)</p>`:""}</div>
-      <span class="text-xs text-slate-400 dark:text-slate-500">turma cheia = ${lot} · mín. 4 · ordenadas pelas mais vazias · reposições (R) não contam</span>
+      <span class="text-xs text-slate-400 dark:text-slate-500">turma cheia = ${lot} · mín. 4 · por dia e hora · reposições (R) não contam</span>
     </div>
     ${grid}
     <p class="text-center text-xs text-slate-400 dark:text-slate-600 mt-5">Cada turma = um horário da semana. Conta as pessoas marcadas nesse horário (sem contar reposições). Vagas = ${lot} − pessoas.</p>`;
