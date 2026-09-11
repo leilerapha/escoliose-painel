@@ -310,8 +310,18 @@ function render(){
       <div class="text-right"><div class="num font-display text-2xl font-extrabold ${pctMetaReal!=null&&pctMetaReal>=100?"text-emerald-600 dark:text-emerald-400":""}">${pctMetaReal!=null?pctMetaReal+"%":"—"}</div><div class="text-xs text-slate-400">real vs meta</div></div>
     </div>
     <div class="grid grid-cols-2 gap-3 mb-3">
-      <div class="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3"><div class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-blue-600"></span>Real (venc. até hoje)</div><div class="num font-display text-lg font-bold mt-0.5">${eur(fatMetaReal)}</div><div class="text-[11px] text-slate-400">${pctMetaReal!=null?pctMetaReal+"% da meta":"—"}</div></div>
-      <div class="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3"><div class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-blue-300"></span>Previsto (fim do mês)</div><div class="num font-display text-lg font-bold mt-0.5">${eur(fatMetaMes)}</div><div class="text-[11px] text-slate-400">${pctMetaPrev!=null?pctMetaPrev+"% da meta":"—"}</div></div>
+      <div class="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3">
+        <div class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-blue-600"></span>Real (venc. até hoje)</div>
+        <div class="flex items-baseline justify-between mt-1"><span class="num font-display text-lg font-bold">${eur(fatMetaReal)}</span><span class="num font-display text-xl font-extrabold text-blue-600 dark:text-blue-400">${pctMetaReal!=null?pctMetaReal+"%":"—"}</span></div>
+        <div class="text-[11px] text-slate-400 text-right -mt-0.5">da meta</div>
+        <div class="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-700 mt-1 overflow-hidden"><div class="h-full rounded-full bg-blue-600" style="width:${Math.min(100,pctMetaReal||0)}%"></div></div>
+      </div>
+      <div class="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3">
+        <div class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-blue-300"></span>Previsto (fim do mês)</div>
+        <div class="flex items-baseline justify-between mt-1"><span class="num font-display text-lg font-bold">${eur(fatMetaMes)}</span><span class="num font-display text-xl font-extrabold text-blue-400">${pctMetaPrev!=null?pctMetaPrev+"%":"—"}</span></div>
+        <div class="text-[11px] text-slate-400 text-right -mt-0.5">da meta</div>
+        <div class="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-700 mt-1 overflow-hidden"><div class="h-full rounded-full bg-blue-400" style="width:${Math.min(100,pctMetaPrev||0)}%"></div></div>
+      </div>
     </div>
     <div class="relative">
       <div class="h-3 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
