@@ -26,7 +26,7 @@
 
 <div id="app" class="min-h-screen"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.469.0/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <script>
 const FUNC = "https://vxnfczgxtlckvqaldwne.supabase.co/functions/v1/painel-clinica";
 const app = document.getElementById("app");
@@ -60,7 +60,7 @@ function pedirCodigo(msg){
       <input id="cod" type="password" autocomplete="off" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2" />
       <button id="ok" class="mt-4 w-full rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 transition-colors">Entrar</button>
     </div></div>`;
-  lucide.createIcons();
+  if(window.lucide) lucide.createIcons();
   const go = () => { const c=document.getElementById("cod").value.trim(); if(c){ setCode(c); carregar(); } };
   document.getElementById("ok").onclick = go;
   document.getElementById("cod").addEventListener("keydown",e=>{ if(e.key==="Enter") go(); });
@@ -169,7 +169,7 @@ function render(d){
   chartSemana(at.semana||[]);
   barsProf(at.por_profissional||[]);
   tabelaSemMarc(pac.lista||[]);
-  lucide.createIcons();
+  if(window.lucide) lucide.createIcons();
 }
 
 function kpi(icon,tint,label,valor,sub){
