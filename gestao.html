@@ -199,6 +199,10 @@ async function guardarMetas(){
   if(PAYLOAD) PAYLOAD.metas={coimbra:c,lisboa:l};
   render();
 }
+function atualizaMetaTotal(){
+  const gv = id => { const el=document.getElementById(id); return el?Math.max(0, parseFloat(el.value)||0):0; };
+  const el=document.getElementById("metaTotal"); if(el) el.textContent = eur(gv("metaCoimbra")+gv("metaLisboa"));
+}
 
 // ---------- listas situação atual (filtradas por unidade + profissional) ----------
 function atrasadosFiltrados(){
@@ -302,11 +306,12 @@ function render(){
     <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
       <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Meta mensal por unidade (€)</div>
       <div class="flex flex-wrap items-end gap-3">
-        <label class="text-xs text-slate-500 dark:text-slate-400">Coimbra<input id="metaCoimbra" type="number" min="0" step="50" value="${metas.coimbra||''}" class="mt-1 block w-32 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm num"></label>
-        <label class="text-xs text-slate-500 dark:text-slate-400">Lisboa<input id="metaLisboa" type="number" min="0" step="50" value="${metas.lisboa||''}" class="mt-1 block w-32 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm num"></label>
+        <label class="text-xs text-slate-500 dark:text-slate-400">Coimbra<input id="metaCoimbra" oninput="atualizaMetaTotal()" type="number" min="0" step="50" value="${metas.coimbra||''}" class="mt-1 block w-32 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm num"></label>
+        <label class="text-xs text-slate-500 dark:text-slate-400">Lisboa<input id="metaLisboa" oninput="atualizaMetaTotal()" type="number" min="0" step="50" value="${metas.lisboa||''}" class="mt-1 block w-32 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent px-3 py-2 text-sm num"></label>
+        <div class="text-xs text-slate-500 dark:text-slate-400">Meta total (ambas)<div id="metaTotal" class="mt-1 num font-bold text-base text-slate-800 dark:text-slate-100">${eur((metas.coimbra||0)+(metas.lisboa||0))}</div></div>
         <button id="btnMeta" onclick="guardarMetas()" class="sh rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm font-semibold transition-colors">Guardar metas</button>
       </div>
-      <p class="text-xs text-slate-400 mt-2">Em "Ambas", a meta é a soma das duas unidades. O progresso é sobre a faturação total do mês (${esc(anchorLabel)}).</p>
+      <p class="text-xs text-slate-400 mt-2">A meta total é a soma das duas unidades. O progresso é sobre a faturação total do mês (${esc(anchorLabel)}).</p>
     </div></div>`;
   const cardSituacao = () => `<div class="flex items-center gap-2 mb-3"><i data-lucide="clock" class="h-4 w-4 text-slate-400"></i><h2 class="font-display font-bold">Situação atual (hoje)</h2>
       <span class="text-xs text-slate-400">${int(at.ativos)} ativos · ${int(at.sem_marcacao_total)} sem marcação · ${eur(pag.valor)} em atraso — todas as unidades</span></div>
